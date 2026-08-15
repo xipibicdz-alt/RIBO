@@ -3,10 +3,6 @@
 -- Original core by Allvideo
 -- Roblox Studio Lite only (PlaceId 10959918411)
 
-local u1 = '3.5'
--- تم تعطيل تحميل ملف الإصدار لتجنب الخطأ
--- local v2 = game:GetService('HttpService'):JSONDecode(game:HttpGet('https://raw.githubusercontent.com/Allvideo1/My-script-/refs/heads/main/Version.json'))
-local v2 = { Version = "3.5" } -- قيمة افتراضية لتجاوز الفحص
 local LocalPlayer = game:GetService('Players').LocalPlayer
 local HttpService = game:GetService('HttpService')
 local UIS = game:GetService('UserInputService')
