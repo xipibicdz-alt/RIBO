@@ -2,7 +2,7 @@
 -- سكربت Brookhaven بسيط مع 3 ميزات
 
 -- تحميل مكتبة الواجهة
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/YourUsername/MyScript/main/library.lua"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xipibicdz-alt/RIBO/refs/heads/main/library.lua"))()
 
 -- متغيرات عامة
 local Players = game:GetService("Players")
