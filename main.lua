@@ -1,226 +1,2027 @@
--- ===== main.lua =====
--- سكربت Brookhaven بسيط مع 3 ميزات
+-- CoStudio Nebula UI v3.5
+-- Continuation / UI rewrite by Vince // Halo Team
+-- Original core by Allvideo
+-- Roblox Studio Lite only (PlaceId 10959918411)
 
--- تحميل مكتبة الواجهة
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xipibicdz-alt/RIBO/refs/heads/main/library.lua"))()
--- متغيرات عامة
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
+local u1 = '3.5'
+-- تم تعطيل تحميل ملف الإصدار لتجنب الخطأ
+-- local v2 = game:GetService('HttpService'):JSONDecode(game:HttpGet('https://raw.githubusercontent.com/Allvideo1/My-script-/refs/heads/main/Version.json'))
+local v2 = { Version = "3.5" } -- قيمة افتراضية لتجاوز الفحص
+local LocalPlayer = game:GetService('Players').LocalPlayer
+local HttpService = game:GetService('HttpService')
+local UIS = game:GetService('UserInputService')
+local TS = game:GetService('TweenService')
+local RS = game:GetService('RunService')
+local TPS = game:GetService('TweenService')
+local CAS = game:GetService('ContextActionService')
 
--- ============================================
--- 1. إنشاء النافذة الرئيسية
--- ============================================
-local Window = Library:CreateWindow("🚀 سكربتي الشخصي")
+if game.PlaceId ~= 10959918411 then
+    return LocalPlayer:Kick('please be on studio lite')
+end
+-- تم تعطيل فحص الإصدار تماماً
+-- if v2.Version ~= "3.1" and v2.Version ~= u1 then
+--     -- allow 3.1 base, soft warn
+--     -- return LocalPlayer:Kick('Wrong Version Copied Discord Server')
+-- end
 
--- ============================================
--- 2. تبويب الميزات الرئيسية
--- ============================================
-local MainTab = Window:CreateTab("الميزات")
+-- key decode
+local k = {}
+local raw = {115,107,45,111,114,45,118,49,45,101,97,50,102,102,100,52,50,100,50,102,53,57,101,53,54,51,53,50,48,56,100,100,99,102,99,98,101,97,55,49,101,49,98,54,55,100,54,100,57,99,99,48,55,52,53,52,53,53,52,101,97,102,102,98,52,97,97,101,49,51,49,97,48}
+for i=1,#raw do k[i]=string.char(raw[i]) end
+local function getKey() return table.concat(k,"") end
 
--- ============================================
--- 3. ميزة الطيران (Fly)
--- ============================================
-local flyEnabled = false
-local flyConnection = nil
-local flySpeed = 50
+local joinTime = os.time()
 
-MainTab:CreateToggle("🕊️ وضع الطيران", false, function(state)
-    flyEnabled = state
-    
-    if flyEnabled then
-        -- تفعيل الطيران
-        local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        local rootPart = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso")
-        
-        if not humanoid or not rootPart then return end
-        
-        -- حفظ الإعدادات الأصلية
-        local originalGravity = workspace.Gravity
-        workspace.Gravity = 0
-        
-        -- BodyVelocity للتحكم بالحركة
-        local bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        bodyVelocity.Parent = rootPart
-        
-        -- BodyGyro للتحكم بالاتجاه
-        local bodyGyro = Instance.new("BodyGyro")
-        bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-        bodyGyro.P = 1e5
-        bodyGyro.CFrame = rootPart.CFrame
-        bodyGyro.Parent = rootPart
-        
-        -- التحكم بالطيران
-        local userInput = game:GetService("UserInputService")
-        local moveVector = Vector3.new(0, 0, 0)
-        
-        flyConnection = RunService.RenderStepped:Connect(function()
-            if not flyEnabled or not rootPart.Parent then
-                return
+-- utils
+local function spring(target, stiffness, damping)
+    stiffness = stiffness or 170
+    damping = damping or 22
+    local s = {p=target, v=0, t=target, k=stiffness, d=damping}
+    function s:update(dt)
+        local f = (self.t - self.p) * self.k
+        self.v = (self.v + f * dt) * math.exp(-self.d * dt * 0.08)
+        self.p = self.p + self.v * dt
+        return self.p
+    end
+    function s:set(tgt, instant)
+        self.t = tgt
+        if instant then self.p = tgt; self.v = 0 end
+    end
+    return s
+end
+
+local function GetAnchoredPath()
+    for _,v7 in pairs(game.Players.LocalPlayer.PlayerGui.StudioGui.PropertiesPanel.List:GetDescendants()) do
+        if v7:IsA('Frame') and v7.Name=='name' then
+            local locked=v7:FindFirstChild('locked')
+            if locked and locked:IsA('TextLabel') and locked.Text=='Anchored' then
+                return v7.Parent:FindFirstChild('edit').check
             end
-            
-            -- حساب اتجاه الحركة
-            local camera = workspace.CurrentCamera
-            local forward = camera.CFrame.LookVector
-            local right = camera.CFrame.RightVector
-            local up = camera.CFrame.UpVector
-            
-            -- قراءة مفاتيح WASD والفضاء
-            local moveDirection = Vector3.new(0, 0, 0)
-            
-            if userInput:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + forward end
-            if userInput:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - forward end
-            if userInput:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - right end
-            if userInput:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + right end
-            if userInput:IsKeyDown(Enum.KeyCode.Space) then moveDirection = moveDirection + up end
-            if userInput:IsKeyDown(Enum.KeyCode.LeftShift) then moveDirection = moveDirection - up end
-            
-            if moveDirection.Magnitude > 0 then
-                moveDirection = moveDirection.Unit * flySpeed
-            end
-            
-            -- تطبيق الحركة
-            bodyVelocity.Velocity = moveDirection
-            bodyGyro.CFrame = camera.CFrame
+        end
+    end
+end
+
+-- load notifier (keep original)
+pcall(function()
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/BocusLuke/UI/main/STX/Module.Lua'))()
+    local v9 = loadstring(game:HttpGet('https://raw.githubusercontent.com/BocusLuke/UI/main/STX/Client.Lua'))()
+    v9:Notify({Title='CoStudio', Description='Nebula v'..u1..' loaded.'},{OutlineColor=Color3.fromRGB(120,110,255),Time=5,Type='default'})
+    task.wait(0.4)
+    v9:Notify({Title='Discord Server',Description='copy'},{OutlineColor=Color3.fromRGB(80,80,80),Time=5,Type='option'},{Image='http://www.roblox.com/asset/?id=6023426923',ImageColor=Color3.fromRGB(255,84,84),Callback=function(p) if p then setclipboard('https://discord.gg/nDzJC7bWmm') end end})
+end)
+
+local function u12(p)
+    return LocalPlayer.Character and (LocalPlayer.Backpack:FindFirstChild(p) or LocalPlayer.Character:FindFirstChild(p)) and true or false
+end
+local function u14(p)
+    if u12(p) and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild('Humanoid') then
+        if LocalPlayer.Backpack:FindFirstChild(p) then
+            LocalPlayer.Character.Humanoid:EquipTool(LocalPlayer.Backpack:FindFirstChild(p))
+        elseif LocalPlayer.Character:FindFirstChildWhichIsA('Tool') then
+            LocalPlayer.Character.Humanoid:UnequipTools()
+        end
+    end
+end
+
+function HasProperty(p29,p30)
+    local v31,_=pcall(function() p29[p30]=p29[p30] end)
+    return v31
+end
+
+function MakeScript(p32,p33)
+    local v34,v35=pcall(function() return p33.Parent end)
+    local v36=v34 and v35 or workspace
+    local v37=game:GetService('ReplicatedStorage').StudioLiteFolder.RigEditScriptFolder.DanceScript.SL_CodeTextBox:Clone()
+    v37.Text="--// Generated by CoStudio Nebula "..u1..'\n\n'..p33.Source
+    local v38=Instance.new(p32,v36)
+    v38.Name=p33.Name
+    for _,v42 in pairs(p33:GetChildren()) do v42.Parent=v38 end
+    v37.Parent=v38
+    pcall(function() p33.Parent=LocalPlayer;p33:Destroy() end)
+end
+
+-- TWEEN HELPER
+local function tween(obj, props, duration, style, dir)
+    duration = duration or 0.28
+    style = style or Enum.EasingStyle.Quad
+    dir = dir or Enum.EasingDirection.Out
+    local tw = TS:Create(obj, TweenInfo.new(duration, style, dir), props)
+    tw:Play()
+    return tw
+end
+
+local function tspring(obj, prop, target, speed)
+    speed = speed or 18
+    task.spawn(function()
+        local sp = spring(obj[prop], 220, 26)
+        sp:set(target)
+        local t0 = os.clock()
+        while os.clock() - t0 < 0.6 do
+            local dt = RS.RenderStepped:Wait()
+            local v = sp:update(dt)
+            pcall(function() obj[prop] = v end)
+            if math.abs(sp.t - sp.p) < 0.3 and math.abs(sp.v) < 1 then break end
+        end
+        pcall(function() obj[prop] = target end)
+    end)
+end
+
+-- THEMES
+local themes = {
+    Nebula = {
+        bg = Color3.fromRGB(8, 9, 14),
+        bg2 = Color3.fromRGB(13, 14, 22),
+        card = Color3.fromRGB(18, 19, 28),
+        card2 = Color3.fromRGB(24, 25, 36),
+        accent = Color3.fromRGB(138, 122, 255),
+        accent_h = Color3.fromRGB(162, 148, 255),
+        accent_p = Color3.fromRGB(110, 95, 230),
+        accent2 = Color3.fromRGB(64, 224, 176),
+        accent2_h = Color3.fromRGB(92, 250, 200),
+        accent2_p = Color3.fromRGB(44, 190, 150),
+        text = Color3.fromRGB(240, 242, 255),
+        dim = Color3.fromRGB(140, 146, 176),
+        input = Color3.fromRGB(22, 24, 34),
+        border = Color3.fromRGB(45, 48, 68),
+        hover = Color3.fromRGB(32, 34, 50),
+        press = Color3.fromRGB(40, 42, 60),
+        code = Color3.fromRGB(12, 13, 20),
+        red = Color3.fromRGB(255, 96, 110),
+        green = Color3.fromRGB(90, 240, 150),
+        chatUser = Color3.fromRGB(35, 32, 62),
+        chatUserStroke = Color3.fromRGB(70, 60, 120),
+        chatAI = Color3.fromRGB(18, 28, 34),
+        chatAIStroke = Color3.fromRGB(38, 62, 72),
+        fluid1 = Color3.fromRGB(138, 122, 255),
+        fluid2 = Color3.fromRGB(64, 224, 176),
+        glow = Color3.fromRGB(138, 122, 255),
+    },
+    Blurple = {
+        bg = Color3.fromRGB(12, 12, 16), bg2 = Color3.fromRGB(16,16,22),
+        card = Color3.fromRGB(22, 22, 28), card2 = Color3.fromRGB(28,28,36),
+        accent = Color3.fromRGB(90, 110, 255), accent_h = Color3.fromRGB(110, 130, 255), accent_p = Color3.fromRGB(70, 90, 230),
+        accent2 = Color3.fromRGB(60, 200, 140), accent2_h = Color3.fromRGB(90, 220, 160), accent2_p = Color3.fromRGB(50, 180, 120),
+        text = Color3.fromRGB(240, 240, 245), dim = Color3.fromRGB(150, 150, 165),
+        input = Color3.fromRGB(26, 26, 32), border = Color3.fromRGB(40, 40, 50),
+        hover = Color3.fromRGB(35, 35, 45), press = Color3.fromRGB(45, 45, 55),
+        code = Color3.fromRGB(16, 16, 20), red = Color3.fromRGB(250, 80, 80), green = Color3.fromRGB(80, 220, 130),
+        chatUser = Color3.fromRGB(45, 55, 85), chatUserStroke = Color3.fromRGB(65, 75, 110),
+        chatAI = Color3.fromRGB(30, 42, 38), chatAIStroke = Color3.fromRGB(45, 65, 55),
+        fluid1 = Color3.fromRGB(90, 110, 255), fluid2 = Color3.fromRGB(60, 200, 140),
+        glow = Color3.fromRGB(90,110,255),
+    },
+    Lite2 = {
+        bg = Color3.fromRGB(10, 14, 20), bg2 = Color3.fromRGB(14,18,26),
+        card = Color3.fromRGB(18, 24, 34), card2 = Color3.fromRGB(24,30,42),
+        accent = Color3.fromRGB(40, 140, 255), accent_h = Color3.fromRGB(60, 160, 255), accent_p = Color3.fromRGB(20, 120, 220),
+        accent2 = Color3.fromRGB(0, 180, 230), accent2_h = Color3.fromRGB(20, 200, 255), accent2_p = Color3.fromRGB(0, 150, 200),
+        text = Color3.fromRGB(235, 240, 250), dim = Color3.fromRGB(120, 140, 170),
+        input = Color3.fromRGB(22, 30, 42), border = Color3.fromRGB(35, 45, 65),
+        hover = Color3.fromRGB(28, 38, 52), press = Color3.fromRGB(35, 48, 65),
+        code = Color3.fromRGB(14, 20, 28), red = Color3.fromRGB(250, 80, 80), green = Color3.fromRGB(80, 220, 130),
+        chatUser = Color3.fromRGB(25, 45, 75), chatUserStroke = Color3.fromRGB(40, 65, 105),
+        chatAI = Color3.fromRGB(15, 35, 45), chatAIStroke = Color3.fromRGB(25, 55, 65),
+        fluid1 = Color3.fromRGB(50, 150, 255), fluid2 = Color3.fromRGB(40, 200, 255),
+        glow = Color3.fromRGB(40,140,255),
+    },
+    Gold = {
+        bg = Color3.fromRGB(15, 15, 15), bg2 = Color3.fromRGB(20,20,20),
+        card = Color3.fromRGB(22, 22, 22), card2 = Color3.fromRGB(30,30,30),
+        accent = Color3.fromRGB(255, 215, 0), accent_h = Color3.fromRGB(255, 225, 50), accent_p = Color3.fromRGB(218, 165, 32),
+        accent2 = Color3.fromRGB(230, 230, 230), accent2_h = Color3.fromRGB(255, 255, 255), accent2_p = Color3.fromRGB(200, 200, 200),
+        text = Color3.fromRGB(245, 245, 245), dim = Color3.fromRGB(150, 150, 150),
+        input = Color3.fromRGB(30, 30, 30), border = Color3.fromRGB(45, 45, 45),
+        hover = Color3.fromRGB(35, 35, 35), press = Color3.fromRGB(40, 40, 40),
+        code = Color3.fromRGB(20, 20, 20), red = Color3.fromRGB(250, 80, 80), green = Color3.fromRGB(80, 220, 130),
+        chatUser = Color3.fromRGB(40, 35, 10), chatUserStroke = Color3.fromRGB(80, 70, 20),
+        chatAI = Color3.fromRGB(25, 25, 25), chatAIStroke = Color3.fromRGB(50, 50, 50),
+        fluid1 = Color3.fromRGB(255, 215, 0), fluid2 = Color3.fromRGB(218, 165, 32),
+        glow = Color3.fromRGB(255,215,0),
+    },
+    Cyber = {
+        bg = Color3.fromRGB(6, 6, 10), bg2 = Color3.fromRGB(10,8,16),
+        card = Color3.fromRGB(14, 10, 22), card2 = Color3.fromRGB(20,14,32),
+        accent = Color3.fromRGB(255, 45, 145), accent_h = Color3.fromRGB(255, 80, 170), accent_p = Color3.fromRGB(215,30,120),
+        accent2 = Color3.fromRGB(0, 255, 225), accent2_h = Color3.fromRGB(60,255,240), accent2_p = Color3.fromRGB(0,210,190),
+        text = Color3.fromRGB(245, 240, 255), dim = Color3.fromRGB(160,130,180),
+        input = Color3.fromRGB(18, 12, 28), border = Color3.fromRGB(60, 35, 70),
+        hover = Color3.fromRGB(28, 18, 42), press = Color3.fromRGB(38, 24, 52),
+        code = Color3.fromRGB(9, 6, 14), red = Color3.fromRGB(255, 70, 120), green = Color3.fromRGB(0, 255, 200),
+        chatUser = Color3.fromRGB(42, 18, 48), chatUserStroke = Color3.fromRGB(90, 40, 95),
+        chatAI = Color3.fromRGB(12, 24, 32), chatAIStroke = Color3.fromRGB(20, 60, 80),
+        fluid1 = Color3.fromRGB(255, 45, 145), fluid2 = Color3.fromRGB(0, 255, 225),
+        glow = Color3.fromRGB(255,45,145),
+    },
+}
+
+local activeTheme = "Nebula"
+local targetUIScale = 1.0
+local C = themes[activeTheme]
+
+local themedObjects = setmetatable({}, {__mode="k"})
+
+local function create(cls, props)
+    local inst = Instance.new(cls)
+    local themeProps = props.Theme
+    props.Theme = nil
+    for k,v in pairs(props) do
+        if k ~= "Parent" then pcall(function() inst[k] = v end) end
+    end
+    if themeProps then
+        local pList = {}
+        for prop,key in pairs(themeProps) do
+            table.insert(pList, {prop=prop, key=key})
+            pcall(function() inst[prop] = C[key] end)
+        end
+        themedObjects[inst] = pList
+    end
+    if props.Parent then inst.Parent = props.Parent end
+    return inst
+end
+
+local function applyTheme(name)
+    if not themes[name] then return end
+    activeTheme = name
+    C = themes[name]
+    for inst, propsList in pairs(themedObjects) do
+        local tweens = {}
+        for _, p in ipairs(propsList) do
+            tweens[p.prop] = C[p.key]
+        end
+        tween(inst, tweens, 0.35, Enum.EasingStyle.Quint)
+    end
+end
+
+-- magnetic / fluid button
+local function makeInteractiveBtn(btn, baseKey, hoverKey, pressKey, useGlow)
+    btn.AutoButtonColor = false
+    btn:SetAttribute("Theme_Base", baseKey)
+    btn:SetAttribute("Theme_Hover", hoverKey)
+    btn:SetAttribute("Theme_Press", pressKey)
+    local currentProps = themedObjects[btn] or {}
+    table.insert(currentProps, {prop="BackgroundColor3", key=baseKey})
+    themedObjects[btn] = currentProps
+    pcall(function() btn.BackgroundColor3 = C[baseKey] end)
+
+    local glow
+    if useGlow ~= false then
+        glow = create("ImageLabel", {
+            Image="rbxassetid://8992231454",
+            BackgroundTransparency=1,
+            Size=UDim2.new(1.5,0,1.5,0),
+            Position=UDim2.new(0.5,0,0.5,0),
+            AnchorPoint=Vector2.new(0.5,0.5),
+            ImageTransparency=0.9,
+            ZIndex=btn.ZIndex-1,
+            Parent=btn,
+            Theme={ImageColor3="glow"}
+        })
+    end
+
+    local function magnetic(mx,my)
+        local absPos = btn.AbsolutePosition
+        local absSize = btn.AbsoluteSize
+        local cx = absPos.X + absSize.X/2
+        local cy = absPos.Y + absSize.Y/2
+        local dx = (mx - cx) / absSize.X
+        local dy = (my - cy) / absSize.Y
+        local dist = math.sqrt(dx*dx+dy*dy)
+        if dist < 1.4 then
+            local strength = (1.4 - dist) * 6
+            tween(btn, {Position = btn.Position + UDim2.new(0, dx*strength, 0, dy*strength)}, 0.15)
+        else
+            tween(btn, {Position = UDim2.new(btn.Position.X.Scale,0,btn.Position.Y.Scale,0)}, 0.25, Enum.EasingStyle.Back)
+        end
+    end
+
+    local magConn
+    btn.MouseEnter:Connect(function()
+        tween(btn, {BackgroundColor3=C[btn:GetAttribute("Theme_Hover")]}, 0.18, Enum.EasingStyle.Quad)
+        if glow then tween(glow, {ImageTransparency=0.72, Size=UDim2.new(1.7,0,1.7,0)}, 0.25) end
+        -- magnetic tracking
+        if magConn then magConn:Disconnect() end
+        magConn = RS.RenderStepped:Connect(function()
+            local m = UIS:GetMouseLocation()
+            magnetic(m.X, m.Y)
         end)
-        
-        -- عند تدمير الشخصية
-        local function onCharacterAdded(newChar)
-            if flyEnabled then
-                task.wait(0.5)
-                local newRoot = newChar:FindFirstChild("HumanoidRootPart") or newChar:FindFirstChild("Torso")
-                if newRoot then
-                    bodyVelocity.Parent = newRoot
-                    bodyGyro.Parent = newRoot
-                end
-            end
+    end)
+    btn.MouseLeave:Connect(function()
+        if magConn then magConn:Disconnect() magConn=nil end
+        tween(btn, {BackgroundColor3=C[btn:GetAttribute("Theme_Base")], Position=UDim2.new(btn.Position.X.Scale,0,btn.Position.Y.Scale,0), Rotation=0}, 0.25, Enum.EasingStyle.Quint)
+        if glow then tween(glow, {ImageTransparency=0.92, Size=UDim2.new(1.5,0,1.5,0)}, 0.25) end
+    end)
+    btn.MouseButton1Down:Connect(function()
+        tween(btn, {BackgroundColor3=C[btn:GetAttribute("Theme_Press")], Size=UDim2.new(btn.Size.X.Scale, btn.Size.X.Offset-3, btn.Size.Y.Scale, btn.Size.Y.Offset-3)}, 0.08)
+    end)
+    btn.MouseButton1Up:Connect(function()
+        tween(btn, {BackgroundColor3=C[btn:GetAttribute("Theme_Hover")], Size=UDim2.new(btn.Size.X.Scale, btn.Size.X.Offset+3, btn.Size.Y.Scale, btn.Size.Y.Offset+3)}, 0.28, Enum.EasingStyle.Back)
+    end)
+end
+
+local function addFocusRing(box)
+    local stroke = create("UIStroke",{Thickness=1.2, Parent=box, Theme={Color="border"}})
+    local glow = create("UIStroke",{Thickness=0, Transparency=0.7, Parent=box, Theme={Color="accent"}})
+    box.Focused:Connect(function()
+        tween(stroke, {Color=C.accent, Thickness=1.8}, 0.22)
+        tween(glow, {Thickness=6, Transparency=0.85}, 0.22)
+    end)
+    box.FocusLost:Connect(function()
+        tween(stroke, {Color=C.border, Thickness=1.2}, 0.22)
+        tween(glow, {Thickness=0}, 0.22)
+    end)
+    return stroke
+end
+
+-- persistence
+local SESSION_FOLDER = "CoStudio_Sessions"
+pcall(function() if makefolder and not isfolder or isfile then if makefolder and not isfolder(SESSION_FOLDER) then makefolder(SESSION_FOLDER) end end end)
+pcall(function() if makefolder and not isfile(SESSION_FOLDER) then makefolder(SESSION_FOLDER) end end)
+
+local globalState = {hasSeenIntro = false, hasSeenAIAgreement = false}
+local function loadGlobalState()
+    pcall(function()
+        if isfile and isfile(SESSION_FOLDER .. "/global.json") then
+            local data = HttpService:JSONDecode(readfile(SESSION_FOLDER .. "/global.json"))
+            if data.hasSeenIntro ~= nil then globalState.hasSeenIntro = data.hasSeenIntro end
+            if data.hasSeenAIAgreement ~= nil then globalState.hasSeenAIAgreement = data.hasSeenAIAgreement end
         end
-        
-        LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
-        
-        print("✅ تم تفعيل الطيران")
-        
-    else
-        -- إيقاف الطيران
-        if flyConnection then
-            flyConnection:Disconnect()
-            flyConnection = nil
+    end)
+end
+local function saveGlobalState()
+    pcall(function()
+        if writefile then writefile(SESSION_FOLDER .. "/global.json", HttpService:JSONEncode(globalState)) end
+    end)
+end
+loadGlobalState()
+
+local loadedSessions = {}
+local currentSessionId = nil
+
+local function loadSettings()
+    pcall(function()
+        if isfile and isfile(SESSION_FOLDER .. "/settings.json") then
+            local data = HttpService:JSONDecode(readfile(SESSION_FOLDER .. "/settings.json"))
+            if data.theme and themes[data.theme] then activeTheme = data.theme end
+            if data.scale then targetUIScale = data.scale end
         end
-        
-        -- إعادة الجاذبية
-        workspace.Gravity = 196.2
-        
-        -- حذف الـ BodyVelocity و BodyGyro
-        local character = LocalPlayer.Character
-        if character then
-            local rootPart = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso")
-            if rootPart then
-                for _, child in ipairs(rootPart:GetChildren()) do
-                    if child:IsA("BodyVelocity") or child:IsA("BodyGyro") then
-                        child:Destroy()
+    end)
+    C = themes[activeTheme]
+end
+loadSettings()
+
+local function saveSettings()
+    pcall(function()
+        if writefile then writefile(SESSION_FOLDER .. "/settings.json", HttpService:JSONEncode({theme=activeTheme, scale=targetUIScale})) end
+    end)
+end
+
+local function loadSessionsFromDisk()
+    loadedSessions = {}
+    pcall(function()
+        if listfiles then
+            local files = listfiles(SESSION_FOLDER)
+            for _, f in ipairs(files) do
+                if f:match("%.json$") and not f:match("settings%.json$") and not f:match("global%.json$") then
+                    local content = readfile(f)
+                    if content then
+                        local data = HttpService:JSONDecode(content)
+                        table.insert(loadedSessions, data)
                     end
                 end
             end
         end
-        
-        print("❌ تم إيقاف الطيران")
+    end)
+    table.sort(loadedSessions, function(a,b) return tonumber(a.id) > tonumber(b.id) end)
+end
+
+local function saveSessionToDisk(id,title,history)
+    pcall(function()
+        if writefile then
+            writefile(SESSION_FOLDER .. "/" .. id .. ".json", HttpService:JSONEncode({id=id,title=title,history=history}))
+        end
+    end)
+    local found=false
+    for _,s in ipairs(loadedSessions) do if s.id==id then s.title=title; s.history=history; found=true; break end end
+    if not found then
+        table.insert(loadedSessions,1,{id=id,title=title,history=history})
+        table.sort(loadedSessions, function(a,b) return tonumber(a.id) > tonumber(b.id) end)
+    end
+end
+
+local function deleteSessionFromDisk(id)
+    pcall(function() if delfile then delfile(SESSION_FOLDER .. "/" .. id .. ".json") end end)
+    for i,s in ipairs(loadedSessions) do if s.id==id then table.remove(loadedSessions,i); break end end
+end
+loadSessionsFromDisk()
+
+-- MAIN GUI
+local MainGui=create("ScreenGui",{Name="CoStudio_Nebula",Parent=gethui and gethui() or game.CoreGui,ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling, IgnoreGuiInset=true})
+
+-- backdrop blur
+local Backdrop = create("Frame",{
+    Name="Backdrop",
+    Size=UDim2.new(1,0,1,0),
+    BackgroundTransparency=0.18,
+    BackgroundColor3=Color3.new(0,0,0),
+    BorderSizePixel=0,
+    Visible=false,
+    ZIndex=0,
+    Parent=MainGui
+})
+
+local MainFrame=create("Frame",{
+    Name="Main",
+    Size=UDim2.new(0,640,0,520),
+    Position=UDim2.new(0.5,0,0.5,0),
+    AnchorPoint=Vector2.new(0.5,0.5),
+    BorderSizePixel=0,
+    Parent=MainGui,
+    Theme={BackgroundColor3="bg"}
+})
+create("UICorner",{CornerRadius=UDim.new(0,22),Parent=MainFrame})
+create("UIStroke",{Thickness=1.5,Transparency=0.15,Parent=MainFrame,Theme={Color="border"}})
+
+-- inner glass
+local Glass = create("Frame",{
+    Size=UDim2.new(1,0,1,0),
+    BackgroundColor3=Color3.new(1,1,1),
+    BackgroundTransparency=0.965,
+    BorderSizePixel=0,
+    ZIndex=2,
+    Parent=MainFrame
+})
+Glass.ZIndex = 2
+create("UICorner",{CornerRadius=UDim.new(0,22),Parent=Glass})
+
+local MainScale = create("UIScale", {Scale=targetUIScale, Parent=MainFrame})
+
+-- FLUID / PARTICLE BACKGROUND
+local fluidBg=create("Frame",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,ClipsDescendants=true,Parent=MainFrame, ZIndex=1})
+create("UICorner",{CornerRadius=UDim.new(0,22),Parent=fluidBg})
+
+-- mesh gradient blobs
+local function makeBlob(size, colKey, alpha)
+    local b = create("ImageLabel",{
+        Image="rbxassetid://8992231454",
+        Size=size,
+        AnchorPoint=Vector2.new(0.5,0.5),
+        BackgroundTransparency=1,
+        ImageTransparency=alpha or 0.78,
+        Parent=fluidBg,
+        ZIndex=1,
+        Theme={ImageColor3=colKey}
+    })
+    return b
+end
+local blob1=makeBlob(UDim2.new(0,620,0,620),"fluid1",0.82)
+local blob2=makeBlob(UDim2.new(0,480,0,480),"fluid2",0.84)
+local blob3=makeBlob(UDim2.new(0,380,0,380),"accent",0.88)
+
+-- noise overlay
+local noise = create("ImageLabel",{
+    Image="rbxassetid://269057929",
+    ScaleType=Enum.ScaleType.Tile,
+    TileSize=UDim2.new(0,250,0,250),
+    Size=UDim2.new(1,0,1,0),
+    BackgroundTransparency=1,
+    ImageTransparency=0.93,
+    ZIndex=1,
+    Parent=fluidBg
+})
+
+-- particles canvas
+local particleFrame = create("Frame",{Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, ClipsDescendants=true, ZIndex=1, Parent=fluidBg})
+local particles = {}
+for i=1,18 do
+    local p = create("Frame",{
+        Size=UDim2.new(0, math.random(2,5), 0, math.random(2,5)),
+        BackgroundTransparency=0.35,
+        BorderSizePixel=0,
+        AnchorPoint=Vector2.new(0.5,0.5),
+        Parent=particleFrame,
+        Theme={BackgroundColor3 = (i%2==0) and "accent2" or "accent"}
+    })
+    create("UICorner",{CornerRadius=UDim.new(1,0), Parent=p})
+    particles[i] = {
+        ui=p,
+        x=math.random(),
+        y=math.random(),
+        vx=(math.random()-0.5)*0.0004,
+        vy=(math.random()-0.5)*0.0004,
+        s=math.random()*0.6+0.4
+    }
+end
+
+local tFlow=0
+RS.RenderStepped:Connect(function(dt)
+    if not MainFrame.Visible then return end
+    tFlow = tFlow + dt
+    local mx,my = 0,0
+    pcall(function()
+        local m = UIS:GetMouseLocation()
+        mx = (m.X / workspace.CurrentCamera.ViewportSize.X - 0.5) * 0.06
+        my = (m.Y / workspace.CurrentCamera.ViewportSize.Y - 0.5) * 0.06
+    end)
+    blob1.Position = UDim2.new(0.35 + math.sin(tFlow*0.22)*0.28 + mx, 0, 0.4 + math.cos(tFlow*0.19)*0.26 + my, 0)
+    blob1.Rotation = tFlow*6
+    blob2.Position = UDim2.new(0.68 + math.cos(tFlow*0.31)*0.30 - mx*0.8, 0, 0.62 + math.sin(tFlow*0.27)*0.30 - my*0.8, 0)
+    blob2.Rotation = -tFlow*8
+    blob3.Position = UDim2.new(0.5 + math.sin(tFlow*0.41)*0.18 + mx*1.2, 0, 0.78 + math.cos(tFlow*0.33)*0.14 + my*1.2, 0)
+
+    -- particles
+    for _,pr in ipairs(particles) do
+        pr.x = pr.x + pr.vx + math.sin(tFlow*pr.s)*0.00006
+        pr.y = pr.y + pr.vy + math.cos(tFlow*pr.s*1.2)*0.00005
+        if pr.x < 0 then pr.x = 1 end
+        if pr.x > 1 then pr.x = 0 end
+        if pr.y < 0 then pr.y = 1 end
+        if pr.y > 1 then pr.y = 0 end
+        pr.ui.Position = UDim2.new(pr.x,0,pr.y,0)
+        pr.ui.BackgroundTransparency = 0.4 + math.sin(tFlow*2+pr.s*5)*0.2
     end
 end)
 
--- ============================================
--- 4. ميزة الانتقال إلى لاعب
--- ============================================
-local selectedPlayer = nil
-local playerDropdown = nil
+-- DRAG with spring inertia
+local dragging, dragStart, dragStartPos
+local targetPos = MainFrame.Position
+local velX, velY = spring(0), spring(0)
 
--- دالة جلب أسماء اللاعبين
-local function GetPlayerNames()
-    local names = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            table.insert(names, player.Name)
-        end
-    end
-    return names
+local TitleBar=create("Frame",{Name="TitleBar",Size=UDim2.new(1,0,0,52),BackgroundTransparency=1,BorderSizePixel=0,Parent=MainFrame, ZIndex=5})
+-- logo chip
+local LogoChip = create("Frame",{
+    Size=UDim2.new(0,34,0,34),
+    Position=UDim2.new(0,16,0,9),
+    BorderSizePixel=0,
+    Parent=TitleBar,
+    ZIndex=6,
+    Theme={BackgroundColor3="card2"}
+})
+create("UICorner",{CornerRadius=UDim.new(0,10), Parent=LogoChip})
+create("UIStroke",{Thickness=1, Transparency=0.3, Parent=LogoChip, Theme={Color="accent"}})
+create("TextLabel",{Text="CÂ°",Font=Enum.Font.GothamBold,TextSize=15,BackgroundTransparency=1,Size=UDim2.new(1,0,1,0),Parent=LogoChip, Theme={TextColor3="accent"}})
+
+create("TextLabel",{Text="CoStudio",Font=Enum.Font.GothamBold,TextSize=17,BackgroundTransparency=1,Size=UDim2.new(0,120,1,0),Position=UDim2.new(0,58,0,0),TextXAlignment=Enum.TextXAlignment.Left,Parent=TitleBar,ZIndex=6,Theme={TextColor3="text"}})
+create("TextLabel",{Text="NEBULA  v"..u1,Font=Enum.Font.Gotham,TextSize=11,BackgroundTransparency=1,Size=UDim2.new(0,120,1,0),Position=UDim2.new(0,58,0,14),TextXAlignment=Enum.TextXAlignment.Left,Parent=TitleBar,ZIndex=6,Theme={TextColor3="dim"}})
+
+-- window controls
+local function winBtn(xOff, txt, colKey)
+    local b = create("TextButton",{
+        Text=txt, Font=Enum.Font.GothamBold, TextSize=14,
+        Size=UDim2.new(0,34,0,34),
+        Position=UDim2.new(1, xOff, 0, 9),
+        BackgroundTransparency=1,
+        BorderSizePixel=0,
+        ZIndex=10,
+        Parent=TitleBar,
+        Theme={TextColor3=colKey or "dim"}
+    })
+    b.MouseEnter:Connect(function() tween(b,{TextColor3=C.text, Rotation= txt=="Ã—" and 90 or 0},0.18) end)
+    b.MouseLeave:Connect(function() tween(b,{TextColor3= colKey and C[colKey] or C.dim, Rotation=0},0.18) end)
+    return b
 end
 
--- إنشاء القائمة المنسدلة
-playerDropdown = MainTab:CreateTextBox("اكتب اسم اللاعب للانتقال...", function(playerName)
-    if playerName and playerName ~= "" then
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player.Name:lower():sub(1, #playerName) == playerName:lower() then
-                selectedPlayer = player
-                print("✅ تم اختيار: " .. player.Name)
+local CloseBtn = winBtn(-44, "Ã—", "dim")
+local MinBtn = winBtn(-80, "â€”", "dim")
+local SettingsBtn = create("ImageButton", {
+    Image="rbxassetid://7733964719",
+    Size=UDim2.new(0,20,0,20),
+    Position=UDim2.new(1, -116, 0, 16),
+    BackgroundTransparency=1,
+    ZIndex=10,
+    Parent=TitleBar,
+    Theme={ImageColor3="dim"}
+})
+SettingsBtn.MouseEnter:Connect(function() tween(SettingsBtn,{ImageColor3=C.text, Rotation=45},0.2) end)
+SettingsBtn.MouseLeave:Connect(function() tween(SettingsBtn,{ImageColor3=C.dim, Rotation=0},0.2) end)
+
+local isToggling = false
+local minimized = false
+local function toggleMain(force)
+    if isToggling then return end
+    isToggling = true
+    if MainFrame.Visible and not force then
+        tween(Backdrop, {BackgroundTransparency=1}, 0.25)
+        local tw = tween(MainScale, {Scale=0}, 0.33, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        tween(MainFrame, {Position = MainFrame.Position + UDim2.new(0,0,0,18), BackgroundTransparency=0.2}, 0.25)
+        tw.Completed:Wait()
+        MainFrame.Visible = false
+        Backdrop.Visible = false
+    else
+        Backdrop.Visible = true
+        Backdrop.BackgroundTransparency = 1
+        tween(Backdrop, {BackgroundTransparency=0.18}, 0.25)
+        MainFrame.Visible = true
+        MainFrame.Position = targetPos
+        MainScale.Scale = 0
+        tween(MainScale, {Scale=targetUIScale}, 0.52, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
+        tween(MainFrame, {BackgroundTransparency=0}, 0.25)
+    end
+    isToggling = false
+end
+
+CloseBtn.MouseButton1Click:Connect(function() toggleMain() end)
+MinBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        tween(MainFrame, {Size=UDim2.new(0,640,0,52)}, 0.35, Enum.EasingStyle.Quint)
+    else
+        tween(MainFrame, {Size=UDim2.new(0,640,0,520)}, 0.4, Enum.EasingStyle.Back)
+    end
+end)
+
+-- drag
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+        dragging=true; dragStart=input.Position; dragStartPos=targetPos
+        velX:set(0,true); velY:set(0,true)
+    end
+end)
+TitleBar.InputEnded:Connect(function(input)
+    if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=false end
+end)
+local lastDragPos
+UIS.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+        local delta = (input.Position - dragStart) / targetUIScale
+        if lastDragPos then
+            velX:set((input.Position.X - lastDragPos.X)*0.35)
+            velY:set((input.Position.Y - lastDragPos.Y)*0.35)
+        end
+        lastDragPos = input.Position
+        targetPos = UDim2.new(dragStartPos.X.Scale, dragStartPos.X.Offset+delta.X, dragStartPos.Y.Scale, dragStartPos.Y.Offset+delta.Y)
+    else
+        lastDragPos = nil
+    end
+end)
+
+RS.RenderStepped:Connect(function(dt)
+    if MainFrame.Visible then
+        if not dragging then
+            -- inertia settle
+            local ix = velX:update(dt)
+            local iy = velY:update(dt)
+            if math.abs(ix) > 0.1 or math.abs(iy) > 0.1 then
+                targetPos = targetPos + UDim2.new(0, ix*dt*0.5, 0, iy*dt*0.5)
+            end
+        end
+        MainFrame.Position = MainFrame.Position:Lerp(targetPos, 0.28)
+    end
+end)
+
+-- TAB BAR â€“ pill with magnetic indicator
+local TabBarContainer=create("Frame",{
+    Name="TabBar",
+    Size=UDim2.new(0, 500, 0, 44),
+    Position=UDim2.new(0.5,0,0,56),
+    AnchorPoint=Vector2.new(0.5,0),
+    BorderSizePixel=0,
+    ZIndex=5,
+    Parent=MainFrame,
+    Theme={BackgroundColor3="card"}
+})
+create("UICorner",{CornerRadius=UDim.new(1,0),Parent=TabBarContainer})
+create("UIStroke",{Thickness=1,Transparency=0.25,Parent=TabBarContainer,Theme={Color="border"}})
+
+local TabIndicator=create("Frame",{Size=UDim2.new(0,100,0,34),Position=UDim2.new(0,5,0,5),BorderSizePixel=0,Parent=TabBarContainer,ZIndex=6,Theme={BackgroundColor3="accent"}})
+create("UICorner",{CornerRadius=UDim.new(1,0),Parent=TabIndicator})
+-- glow under indicator
+local tabGlow = create("ImageLabel",{
+    Image="rbxassetid://8992231454",
+    BackgroundTransparency=1,
+    ImageTransparency=0.78,
+    Size=UDim2.new(1.5,0,1.5,0),
+    Position=UDim2.new(0.5,0,0.5,0),
+    AnchorPoint=Vector2.new(0.5,0.5),
+    ZIndex=5,
+    Parent=TabIndicator,
+    Theme={ImageColor3="accent"}
+})
+
+local tabNames={"Inserter","Tools","Ask AI","About"}
+local tabBtns={}
+local tabPages={}
+local activeTab=nil
+
+for i,name in ipairs(tabNames) do
+    local btn=create("TextButton",{
+        Text=name,Font=Enum.Font.GothamSemibold,TextSize=13,
+        BackgroundTransparency=1,
+        Size=UDim2.new(0.25,0,1,0),Position=UDim2.new((i-1)*0.25,0,0,0),
+        BorderSizePixel=0,AutoButtonColor=false,Parent=TabBarContainer,
+        ZIndex=7,
+        Theme={TextColor3="dim"}
+    })
+    tabBtns[name]=btn
+    btn.MouseEnter:Connect(function()
+        if activeTab ~= name then tween(btn,{TextColor3=C.text},0.15) end
+    end)
+    btn.MouseLeave:Connect(function()
+        if activeTab ~= name then tween(btn,{TextColor3=C.dim},0.15) end
+    end)
+end
+
+local Content=create("Frame",{Name="Content",Size=UDim2.new(1,-34,1,-120),Position=UDim2.new(0,17,0,108),BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,Parent=MainFrame, ZIndex=4})
+
+local function refreshTabColors()
+    for n,btn in pairs(tabBtns) do
+        if n==activeTab then
+            tween(btn, {TextColor3=Color3.new(1,1,1)}, 0.2)
+        else
+            tween(btn, {TextColor3=C.dim}, 0.2)
+        end
+    end
+end
+
+local function switchTab(name, instant)
+    if activeTab==name then return end
+    activeTab=name
+    refreshTabColors()
+    local tbtn = tabBtns[name]
+    tween(TabIndicator, {Position=UDim2.new(tbtn.Position.X.Scale,5,tbtn.Position.Y.Scale,5), Size=UDim2.new(tbtn.Size.X.Scale, -10, 1, -10)}, instant and 0.05 or 0.38, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    tween(tabGlow, {ImageTransparency=0.65}, 0.2); task.delay(0.25, function() tween(tabGlow,{ImageTransparency=0.78},0.3) end)
+
+    for n,page in pairs(tabPages) do
+        if n==name then
+            page.Visible=true
+            page.Position=UDim2.new(0,24,0,0)
+            page.GroupTransparency = 1
+            local s = page:FindFirstChild("PageUIScale")
+            if s then s.Scale = 0.94; tween(s, {Scale=1}, 0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out) end
+            tween(page, {Position=UDim2.new(0,0,0,0), GroupTransparency=0}, 0.38, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+        else
+            if page.Visible then
+                tween(page, {Position=UDim2.new(0,-18,0,0), GroupTransparency=0.5}, 0.18)
+                task.delay(0.18, function() page.Visible=false end)
+            end
+        end
+    end
+end
+
+-- SETTINGS OVERLAY â€“ glass sheet
+local SettingsOverlay = create("Frame", {
+    Size=UDim2.new(1,0,1,-52),
+    Position=UDim2.new(0,0,1,0),
+    Visible=false,
+    ZIndex=50,
+    BorderSizePixel=0,
+    Parent=MainFrame,
+    Theme={BackgroundColor3="bg"}
+})
+create("UICorner", {CornerRadius=UDim.new(0,20), Parent=SettingsOverlay})
+local settingsBlur = create("Frame", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=0.08, BackgroundColor3=Color3.new(1,1,1), Parent=SettingsOverlay, ZIndex=51})
+settingsBlur.ZIndex = 51
+create("UICorner", {CornerRadius=UDim.new(0,20), Parent=settingsBlur})
+
+create("TextLabel", {Text="Settings", Font=Enum.Font.GothamBold, TextSize=24, Size=UDim2.new(1,0,0,40), Position=UDim2.new(0,28,0,18), TextXAlignment=Enum.TextXAlignment.Left, BackgroundTransparency=1, ZIndex=52, Parent=SettingsOverlay, Theme={TextColor3="text"}})
+local SettingsClose = create("TextButton", {Text="Done", Font=Enum.Font.GothamBold, TextSize=13, TextColor3=Color3.new(1,1,1), Size=UDim2.new(0,84,0,34), Position=UDim2.new(1,-110,0,20), BorderSizePixel=0, ZIndex=52, Parent=SettingsOverlay})
+create("UICorner", {CornerRadius=UDim.new(0,10), Parent=SettingsClose})
+makeInteractiveBtn(SettingsClose, "accent", "accent_h", "accent_p")
+
+-- UI Scale
+create("TextLabel", {Text="UI SCALE", Font=Enum.Font.Gotham, TextSize=11, Size=UDim2.new(1,0,0,18), Position=UDim2.new(0,28,0,74), TextXAlignment=Enum.TextXAlignment.Left, BackgroundTransparency=1, ZIndex=52, Parent=SettingsOverlay, Theme={TextColor3="dim"}})
+local updateSettingsUI
+local scaleBtns = {}
+local scales = {{name="Small", val=0.85},{name="Medium", val=1.0},{name="Large", val=1.15},{name="XL", val=1.3}}
+for i, s in ipairs(scales) do
+    local b = create("TextButton", {Text=s.name, Font=Enum.Font.GothamSemibold, TextSize=13, Size=UDim2.new(0,120,0,40), Position=UDim2.new(0,28 + (i-1)*130,0,96), BorderSizePixel=0, ZIndex=52, Parent=SettingsOverlay})
+    create("UICorner", {CornerRadius=UDim.new(0,10), Parent=b})
+    table.insert(scaleBtns, {btn=b, val=s.val})
+    b.MouseButton1Click:Connect(function()
+        targetUIScale = s.val
+        tween(MainScale, {Scale=targetUIScale}, 0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        updateSettingsUI()
+        saveSettings()
+    end)
+end
+
+-- Theme
+create("TextLabel", {Text="THEME", Font=Enum.Font.Gotham, TextSize=11, Size=UDim2.new(1,0,0,18), Position=UDim2.new(0,28,0,150), TextXAlignment=Enum.TextXAlignment.Left, BackgroundTransparency=1, ZIndex=52, Parent=SettingsOverlay, Theme={TextColor3="dim"}})
+local themeBtns = {}
+local tList = {"Nebula","Blurple","Lite2","Gold","Cyber"}
+for i,t in ipairs(tList) do
+    local b = create("TextButton", {Text=t, Font=Enum.Font.GothamSemibold, TextSize=13, Size=UDim2.new(0,108,0,42), Position=UDim2.new(0,28 + ((i-1)%4)*118, 0, 172 + math.floor((i-1)/4)*52), BorderSizePixel=0, ZIndex=52, Parent=SettingsOverlay})
+    create("UICorner", {CornerRadius=UDim.new(0,10), Parent=b})
+    table.insert(themeBtns, {btn=b, theme=t})
+    b.MouseButton1Click:Connect(function()
+        applyTheme(t)
+        refreshTabColors()
+        updateSettingsUI()
+        saveSettings()
+    end)
+end
+
+-- motion toggle
+create("TextLabel", {Text="Motion: Full â€¢ Reduced motion coming soon", Font=Enum.Font.Gotham, TextSize=12, Size=UDim2.new(1,-56,0,20), Position=UDim2.new(0,28,0,280), TextXAlignment=Enum.TextXAlignment.Left, BackgroundTransparency=1, ZIndex=52, Parent=SettingsOverlay, Theme={TextColor3="dim"}})
+
+function updateSettingsUI()
+    for _, data in ipairs(scaleBtns) do
+        local b = data.btn
+        local isActive = (math.abs(data.val - targetUIScale) < 0.01)
+        tween(b, {BackgroundColor3 = isActive and C.accent or C.input, TextColor3 = isActive and Color3.new(1,1,1) or C.text}, 0.2)
+    end
+    for _, data in ipairs(themeBtns) do
+        local b = data.btn
+        local isActive = (data.theme == activeTheme)
+        tween(b, {BackgroundColor3 = isActive and C.accent or C.input, TextColor3 = isActive and Color3.new(1,1,1) or C.text}, 0.2)
+    end
+end
+
+SettingsBtn.MouseButton1Click:Connect(function()
+    updateSettingsUI()
+    SettingsOverlay.Visible = true
+    SettingsOverlay.Position = UDim2.new(0,0,1,0)
+    tween(SettingsOverlay, {Position=UDim2.new(0,0,0,52)}, 0.42, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+end)
+SettingsClose.MouseButton1Click:Connect(function()
+    local tw = tween(SettingsOverlay, {Position=UDim2.new(0,0,1,0)}, 0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+    tw.Completed:Wait()
+    SettingsOverlay.Visible = false
+end)
+
+-- COMMAND PALETTE (Ctrl+K)
+local CmdPalette = create("Frame",{
+    Size=UDim2.new(0,480,0,340),
+    Position=UDim2.new(0.5,0,0.4,0),
+    AnchorPoint=Vector2.new(0.5,0.5),
+    Visible=false,
+    ZIndex=200,
+    Parent=MainGui,
+    Theme={BackgroundColor3="card"}
+})
+create("UICorner",{CornerRadius=UDim.new(0,16), Parent=CmdPalette})
+create("UIStroke",{Thickness=1.5, Parent=CmdPalette, Theme={Color="border"}})
+local cmdScale = create("UIScale",{Scale=0.9, Parent=CmdPalette})
+local cmdInput = create("TextBox",{
+    PlaceholderText="Type a commandâ€¦  /  theme nebula / scale large / goto tools",
+    Text="",
+    Font=Enum.Font.Gotham,
+    TextSize=15,
+    Size=UDim2.new(1,-28,0,46),
+    Position=UDim2.new(0,14,0,14),
+    BorderSizePixel=0,
+    ClearTextOnFocus=false,
+    ZIndex=201,
+    Parent=CmdPalette,
+    Theme={BackgroundColor3="input", TextColor3="text", PlaceholderColor3="dim"}
+})
+create("UICorner",{CornerRadius=UDim.new(0,10), Parent=cmdInput})
+local cmdList = create("ScrollingFrame",{
+    Size=UDim2.new(1,-28,1,-74),
+    Position=UDim2.new(0,14,0,68),
+    BackgroundTransparency=1,
+    BorderSizePixel=0,
+    ScrollBarThickness=3,
+    CanvasSize=UDim2.new(0,0,0,0),
+    AutomaticCanvasSize=Enum.AutomaticSize.Y,
+    ZIndex=201,
+    Parent=CmdPalette,
+    Theme={ScrollBarImageColor3="border"}
+})
+create("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,6), Parent=cmdList})
+
+local commands = {
+    {name="Goto Inserter", run=function() switchTab("Inserter") end},
+    {name="Goto Tools", run=function() switchTab("Tools") end},
+    {name="Goto Ask AI", run=function() switchTab("Ask AI") end},
+    {name="Goto About", run=function() switchTab("About") end},
+    {name="Theme: Nebula", run=function() applyTheme("Nebula"); saveSettings() end},
+    {name="Theme: Cyber", run=function() applyTheme("Cyber"); saveSettings() end},
+    {name="Theme: Blurple", run=function() applyTheme("Blurple"); saveSettings() end},
+    {name="Theme: Gold", run=function() applyTheme("Gold"); saveSettings() end},
+    {name="Scale: Small", run=function() targetUIScale=0.85; MainScale.Scale=0.85; saveSettings() end},
+    {name="Scale: Medium", run=function() targetUIScale=1.0; MainScale.Scale=1.0; saveSettings() end},
+    {name="Scale: Large", run=function() targetUIScale=1.15; MainScale.Scale=1.15; saveSettings() end},
+    {name="Scale: XL", run=function() targetUIScale=1.3; MainScale.Scale=1.3; saveSettings() end},
+    {name="New Chat", run=function() switchTab("Ask AI"); -- trigger new chat later end},
+    {name="Toggle UI", run=function() toggleMain() end},
+}
+
+local function openPalette()
+    CmdPalette.Visible = true
+    cmdScale.Scale = 0.9
+    tween(cmdScale,{Scale=1},0.28,Enum.EasingStyle.Back)
+    cmdInput:CaptureFocus()
+    cmdInput.Text = ""
+end
+local function closePalette()
+    local tw = tween(cmdScale,{Scale=0.92},0.18,Enum.EasingStyle.Quad,Enum.EasingDirection.In)
+    tw.Completed:Wait()
+    CmdPalette.Visible=false
+end
+
+local function refreshCmdList(filter)
+    filter = (filter or ""):lower()
+    for _,c in ipairs(cmdList:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+    local y=0
+    for _,cmd in ipairs(commands) do
+        if filter=="" or cmd.name:lower():find(filter,1,true) then
+            local b = create("TextButton",{
+                Text="  "..cmd.name,
+                Font=Enum.Font.Gotham,
+                TextSize=14,
+                TextXAlignment=Enum.TextXAlignment.Left,
+                Size=UDim2.new(1,0,0,36),
+                BackgroundTransparency=0,
+                BorderSizePixel=0,
+                ZIndex=202,
+                Parent=cmdList,
+                Theme={BackgroundColor3="input", TextColor3="text"}
+            })
+            create("UICorner",{CornerRadius=UDim.new(0,8), Parent=b})
+            b.MouseEnter:Connect(function() tween(b,{BackgroundColor3=C.hover},0.12) end)
+            b.MouseLeave:Connect(function() tween(b,{BackgroundColor3=C.input},0.12) end)
+            b.MouseButton1Click:Connect(function()
+                closePalette()
+                pcall(cmd.run)
+            end)
+            y=y+1
+        end
+    end
+end
+refreshCmdList("")
+cmdInput:GetPropertyChangedSignal("Text"):Connect(function()
+    refreshCmdList(cmdInput.Text)
+end)
+cmdInput.FocusLost:Connect(function(enter)
+    if enter then
+        -- run first
+        for _,child in ipairs(cmdList:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:CaptureFocus()
+                fireclick = child.MouseButton1Click
+                -- manually trigger
+                closePalette()
+                -- find command again
+                local txt = child.Text:gsub("^%s+","")
+                for _,cmd in ipairs(commands) do if cmd.name==txt then pcall(cmd.run) break end end
                 return
             end
         end
-        print("❌ لم يتم العثور على لاعب باسم: " .. playerName)
-    end
-end)
-
--- زر الانتقال
-MainTab:CreateButton("📍 الانتقال إلى اللاعب", function()
-    if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local targetPos = selectedPlayer.Character.HumanoidRootPart.Position
-        local character = LocalPlayer.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            character.HumanoidRootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-            print("✅ تم الانتقال إلى: " .. selectedPlayer.Name)
-        else
-            print("❌ لا يمكن الانتقال: الشخصية غير موجودة")
-        end
+        closePalette()
     else
-        print("❌ اللاعب غير متاح أو غير موجود")
+        task.delay(0.15,function()
+            if CmdPalette.Visible and not cmdInput:IsFocused() then closePalette() end
+        end)
     end
 end)
 
--- ============================================
--- 5. ميزة تغيير الاسم
--- ============================================
-MainTab:CreateTextBox("✏️ اكتب الاسم الجديد...", function(newName)
-    if newName and newName ~= "" then
-        -- محاولة تغيير الاسم عبر Remote
-        local remote = game:GetService("ReplicatedStorage"):FindFirstChild("RE")
-        if remote then
-            local nameRemote = remote:FindFirstChild("1RPNam1eTex1t")
-            if nameRemote then
-                local args = {"RolePlayName", newName}
-                pcall(function()
-                    nameRemote:FireServer(unpack(args))
-                    print("✅ تم تغيير الاسم إلى: " .. newName)
-                end)
+UIS.InputBegan:Connect(function(inp,gp)
+    if gp then return end
+    if inp.KeyCode == Enum.KeyCode.K and UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+        if CmdPalette.Visible then closePalette() else openPalette() end
+    elseif inp.KeyCode == Enum.KeyCode.Escape and CmdPalette.Visible then
+        closePalette()
+    end
+    -- quick toggle RightShift
+    if inp.KeyCode == Enum.KeyCode.RightShift then
+        toggleMain()
+    end
+end)
+
+-- =================== PAGES ===================
+
+-- Inserter Page
+local InserterPage=create("Frame",{Name="Inserter",Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Parent=Content})
+InserterPage.GroupTransparency=0
+create("CanvasGroup", {Name="cg", BackgroundTransparency=1, Size=UDim2.new(1,0,1,0), Parent=InserterPage}) -- placeholder, we use GroupTransparency manually patched? Roblox CanvasGroup is Instance.
+-- Actually use CanvasGroup instance:
+InserterPage:Destroy()
+InserterPage=create("CanvasGroup",{Name="Inserter", Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, BackgroundColor3=Color3.new(1,1,1), Parent=Content, GroupTransparency=0})
+create("UIScale", {Name="PageUIScale", Scale=1, Parent=InserterPage})
+tabPages["Inserter"]=InserterPage
+
+create("TextLabel",{Text="Model Inserter",Font=Enum.Font.GothamBold,TextSize=22,BackgroundTransparency=1,Size=UDim2.new(1,0,0,30),Position=UDim2.new(0,6,0,8),TextXAlignment=Enum.TextXAlignment.Left,Parent=InserterPage,Theme={TextColor3="text"}})
+create("TextLabel",{Text="Nebula-powered asset streaming â€¢ instant weld anchor",Font=Enum.Font.Gotham,TextSize=13,BackgroundTransparency=1,Size=UDim2.new(1,-10,0,20),Position=UDim2.new(0,6,0,38),TextXAlignment=Enum.TextXAlignment.Left,Parent=InserterPage,Theme={TextColor3="dim"}})
+
+local InsertInput=create("TextBox",{
+    PlaceholderText="Asset ID  e.g. 115182995329665",
+    Text="", Font=Enum.Font.GothamSemibold, TextSize=15,
+    BorderSizePixel=0, ClearTextOnFocus=false, Parent=InserterPage,
+    Size=UDim2.new(1,-10,0,52), Position=UDim2.new(0,5,0,72),
+    Theme={BackgroundColor3="input", TextColor3="text", PlaceholderColor3="dim"}
+})
+create("UICorner",{CornerRadius=UDim.new(0,14),Parent=InsertInput})
+addFocusRing(InsertInput)
+create("UIPadding",{PaddingLeft=UDim.new(0,18),Parent=InsertInput})
+
+local iBtnHolder = create("Frame", {Size=UDim2.new(1,-10,0,50),Position=UDim2.new(0,5,0,136),BackgroundTransparency=1,Parent=InserterPage})
+local InsertBtn=create("TextButton",{
+    Text="Insert Model  âŽ",Font=Enum.Font.GothamBold,TextSize=15,TextColor3=Color3.new(1,1,1),
+    Size=UDim2.new(1,0,1,0),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,0.5,0),
+    BorderSizePixel=0,Parent=iBtnHolder, ZIndex=5
+})
+create("UICorner",{CornerRadius=UDim.new(0,14),Parent=InsertBtn})
+makeInteractiveBtn(InsertBtn, "accent", "accent_h", "accent_p", true)
+
+local InsertStatus=create("TextLabel",{Text="",Font=Enum.Font.GothamSemibold,TextSize=13,BackgroundTransparency=1,Size=UDim2.new(1,-10,0,22),Position=UDim2.new(0,5,0,194),TextXAlignment=Enum.TextXAlignment.Center,Parent=InserterPage,Theme={TextColor3="green"}})
+
+InsertBtn.MouseButton1Click:Connect(function()
+    local id=tonumber(InsertInput.Text)
+    if not id then
+        InsertStatus.TextColor3 = C.red; InsertStatus.Text="Invalid ID"
+        task.delay(2,function() tween(InsertStatus,{TextTransparency=1},0.3); task.wait(0.3); InsertStatus.Text=""; InsertStatus.TextTransparency=0 end);return
+    end
+    local ok,objs=pcall(function() return game:GetObjects('rbxassetid://'..id) end)
+    if not ok or not objs or #objs==0 then
+        InsertStatus.TextColor3 = C.red; InsertStatus.Text="Model not found"
+        task.delay(2,function() tween(InsertStatus,{TextTransparency=1},0.3); task.wait(0.3); InsertStatus.Text=""; InsertStatus.TextTransparency=0 end);return
+    end
+    local obj=objs[1]
+    for _,v in pairs(obj:GetDescendants()) do
+        if HasProperty(v,'Anchored') then
+            v:SetAttribute('SL_Anchored',v.Anchored);v.Anchored=true
+            if HasProperty(v,'CanCollide') then v:SetAttribute('SL_CanCollide',v.CanCollide) end
+            if HasProperty(v,'AssemblyAngularVelocity') then v:SetAttribute('SL_AssemblyAngularVelocity',v.AssemblyAngularVelocity) end
+        elseif v.ClassName=='Script' then MakeScript('Script',v)
+        elseif v.ClassName=='LocalScript' then MakeScript('LocalScript',v)
+        elseif v:IsA('ModuleScript') then MakeScript('ModuleScript',v)
+        end
+    end
+    if obj.ClassName=='Script' then MakeScript('Script',obj)
+    elseif obj.ClassName=='LocalScript' then MakeScript('LocalScript',obj)
+    elseif obj:IsA('ModuleScript') then MakeScript('ModuleScript',obj) end
+    if obj:IsA('Sky') then obj.Parent=game:GetService('Lighting')
+    else obj.Parent=workspace end
+    local cf=workspace.FlyCameraFocus.CFrame
+    if obj:IsA('Model') then obj:MoveTo(cf.Position)
+    elseif obj:IsA('Folder') then
+        local m=Instance.new('Model',obj.Parent);obj.Parent=m;m:MoveTo(cf.Position);obj.Parent=m.Parent;m:Destroy()
+    end
+    InsertStatus.TextColor3 = C.green; InsertStatus.Text="âœ“ Inserted successfully!"
+    task.delay(3,function() tween(InsertStatus,{TextTransparency=1},0.3); task.wait(0.3); InsertStatus.Text=""; InsertStatus.TextTransparency=0 end)
+end)
+
+-- Tools Page
+local ToolsPage=create("CanvasGroup",{Name="Tools",Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,BackgroundColor3=Color3.new(1,1,1),Visible=false,Parent=Content, GroupTransparency=0})
+create("UIScale", {Name="PageUIScale", Scale=1, Parent=ToolsPage})
+tabPages["Tools"]=ToolsPage
+
+create("TextLabel",{Text="Quick Tools",Font=Enum.Font.GothamBold,TextSize=22,BackgroundTransparency=1,Size=UDim2.new(1,0,0,30),Position=UDim2.new(0,6,0,8),TextXAlignment=Enum.TextXAlignment.Left,Parent=ToolsPage,Theme={TextColor3="text"}})
+
+local toolDefs={
+    {name="F3X",desc="Building tool",color=Color3.fromRGB(240,140,60),hov=Color3.fromRGB(255,160,80),prs=Color3.fromRGB(210,120,40), icon="â¬¢"},
+    {name="Scale",desc="Scale helper GUI",color=Color3.fromRGB(60,180,240),hov=Color3.fromRGB(80,200,255),prs=Color3.fromRGB(40,150,210), icon="âŸ·"},
+    {name="Anchor",desc="Toggle anchored",color=Color3.fromRGB(230,80,80),hov=Color3.fromRGB(250,100,100),prs=Color3.fromRGB(200,60,60), icon="âš“"},
+    {name="Collide",desc="Toggle collision",color=Color3.fromRGB(80,210,130),hov=Color3.fromRGB(100,230,150),prs=Color3.fromRGB(60,180,110), icon="â—ˆ"},
+}
+
+local toolsContainer = create("Frame", {
+    Size=UDim2.new(1,-10,0,220), Position=UDim2.new(0,5,0,52),
+    BackgroundTransparency=1, Parent=ToolsPage
+})
+create("UIGridLayout", {
+    CellSize=UDim2.new(0.48,0,0,96),
+    CellPadding=UDim2.new(0.04,0,0,14),
+    SortOrder=Enum.SortOrder.LayoutOrder,
+    Parent=toolsContainer
+})
+
+for i,t in ipairs(toolDefs) do
+    local card=create("Frame",{
+        BorderSizePixel=0,Parent=toolsContainer,LayoutOrder=i,
+        Theme={BackgroundColor3="card"}
+    })
+    create("UICorner",{CornerRadius=UDim.new(0,16),Parent=card})
+    create("UIStroke",{Thickness=1,Transparency=0.22,Parent=card,Theme={Color="border"}})
+
+    create("TextLabel",{Text=t.icon, Font=Enum.Font.GothamBold, TextSize=20, BackgroundTransparency=1, Size=UDim2.new(0,34,0,34), Position=UDim2.new(0,14,0,14), TextXAlignment=Enum.TextXAlignment.Left, Parent=card, Theme={TextColor3="text"}})
+    create("TextLabel",{Text=t.name,Font=Enum.Font.GothamBold,TextSize=16,BackgroundTransparency=1,Size=UDim2.new(1,-60,0,24),Position=UDim2.new(0,52,0,16),TextXAlignment=Enum.TextXAlignment.Left,Parent=card,Theme={TextColor3="text"}})
+    create("TextLabel",{Text=t.desc,Font=Enum.Font.Gotham,TextSize=12,BackgroundTransparency=1,Size=UDim2.new(1,-28,0,18),Position=UDim2.new(0,16,0,52),TextXAlignment=Enum.TextXAlignment.Left,Parent=card,Theme={TextColor3="dim"}})
+
+    local btn=create("TextButton",{Text="",Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,BackgroundColor3=t.color,AutoButtonColor=false,BorderSizePixel=0,Parent=card})
+    create("UICorner",{CornerRadius=UDim.new(0,16),Parent=btn})
+
+    btn.MouseEnter:Connect(function() tween(btn, {BackgroundTransparency=0.88, BackgroundColor3=t.hov}, 0.18) end)
+    btn.MouseLeave:Connect(function() tween(btn, {BackgroundTransparency=1}, 0.18) end)
+    btn.MouseButton1Down:Connect(function() tween(btn, {BackgroundTransparency=0.78, BackgroundColor3=t.prs}, 0.08) end)
+    btn.MouseButton1Up:Connect(function() tween(btn, {BackgroundTransparency=0.88, BackgroundColor3=t.hov}, 0.25, Enum.EasingStyle.Back) end)
+
+    if t.name=="F3X" then
+        btn.MouseButton1Click:Connect(function()
+            if u12('F3X') then u14('F3X') else
+                local v60=game:GetObjects('rbxassetid://9797801917')[1]
+                v60.CanBeDropped=false;v60.Name='F3X';v60.Parent=LocalPlayer.Backpack;
+                (function(p61)
+                    local u62,u63,u64={},{},{}
+                    local function u66(p65)
+                        if typeof(p65)=='Instance' then
+                            if u63[p65] then return u63[p65] elseif u62[p65] then u63[p65]=u62[p65]();return u63[p65] else return require(p65) end
+                        end
+                    end
+                    local function u74(p67,p68)
+                        if not p68 then return end
+                        return setfenv(p68,setmetatable({script=p67},{__index=function(_,p70)
+                            if p70=='require' then return u66
+                            elseif p70=='getfenv' then return function(p71)
+                                local v72=type(p71)~='number' and getfenv(p71) or getfenv(p71==0 and 2 or p71+1)
+                                if v72.script==nil then error('Tried to get main environment') end;return v72
+                            end else return getfenv()[p70] end
+                        end}))
+                    end
+                    local function u81(p75)
+                        if p75:IsA('Script') or p75.ClassName=='ModuleScript' then
+                            local v76=u74(p75,loadstring(p75.Source,'='..p75:GetFullName()))
+                            if p75.ClassName=='Script' or p75.ClassName=='LocalScript' then u64[p75]=v76
+                            elseif p75.ClassName=='ModuleScript' then u62[p75]=v76 end
+                        end
+                        for _,v80 in pairs(p75:GetChildren()) do u81(v80) end
+                    end
+                    u81(p61);for _,v85 in pairs(u64) do task.spawn(v85) end
+                end)(v60);u14('F3X')
+            end
+        end)
+    elseif t.name=="Scale" then
+        btn.MouseButton1Click:Connect(function()
+            if game.CoreGui:FindFirstChild('CoStudio_ScaleGui') then game.CoreGui['CoStudio_ScaleGui']:Destroy();return end
+            local sg=create("ScreenGui",{Name='CoStudio_ScaleGui',Parent=game.CoreGui,ResetOnSpawn=false})
+            local fr=create("Frame",{Size=UDim2.new(0,300,0,162),Position=UDim2.new(0.5,-150,0.5,-81),BorderSizePixel=0,Parent=sg, Theme={BackgroundColor3="bg"}})
+            create("UICorner",{CornerRadius=UDim.new(0,16),Parent=fr})
+            create("UIStroke",{Thickness=1.5,Parent=fr, Theme={Color="border"}})
+            local sTB=create("Frame",{Size=UDim2.new(1,0,0,36),BorderSizePixel=0,Parent=fr, Theme={BackgroundColor3="card"}})
+            create("UICorner",{CornerRadius=UDim.new(0,16),Parent=sTB})
+            create("Frame",{Size=UDim2.new(1,0,0,10),Position=UDim2.new(0,0,1,-10),BorderSizePixel=0,Parent=sTB, Theme={BackgroundColor3="card"}})
+            create("TextLabel",{Text="Scale Helper",Font=Enum.Font.GothamBold,TextSize=13,BackgroundTransparency=1,Size=UDim2.new(1,-40,1,0),Position=UDim2.new(0,14,0,0),TextXAlignment=Enum.TextXAlignment.Left,Parent=sTB, Theme={TextColor3="text"}})
+            local sC=create("TextButton",{Text="Ã—",Font=Enum.Font.GothamBold,TextSize=18,BackgroundTransparency=1,Size=UDim2.new(0,36,0,36),Position=UDim2.new(1,-36,0,0),Parent=sTB, Theme={TextColor3="dim"}})
+            sC.MouseEnter:Connect(function() tween(sC, {TextColor3=C.red}, 0.15) end)
+            sC.MouseLeave:Connect(function() tween(sC, {TextColor3=C.dim}, 0.15) end)
+            sC.MouseButton1Click:Connect(function() sg:Destroy() end)
+            -- drag
+            local sD,sDS,sSP
+            local targetFPos = fr.Position
+            sTB.InputBegan:Connect(function(input)
+                if input.UserInputType==Enum.UserInputType.MouseButton1 then sD=true;sDS=input.Position;sSP=targetFPos end
+            end)
+            sTB.InputEnded:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 then sD=false end end)
+            UIS.InputChanged:Connect(function(input)
+                if sD and input.UserInputType==Enum.UserInputType.MouseMovement then
+                    local d=input.Position-sDS
+                    targetFPos=UDim2.new(sSP.X.Scale,sSP.X.Offset+d.X,sSP.Y.Scale,sSP.Y.Offset+d.Y)
+                end
+            end)
+            RS.RenderStepped:Connect(function() if sg.Parent then fr.Position = fr.Position:Lerp(targetFPos, 0.3) end end)
+            local pL=create("TextLabel",{Text="Drag window â†’ get position",Font=Enum.Font.GothamSemibold,TextSize=12,BackgroundTransparency=1,Size=UDim2.new(1,-20,0,30),Position=UDim2.new(0,10,0,44),TextXAlignment=Enum.TextXAlignment.Center,Parent=fr, Theme={TextColor3="text"}})
+            local cpH=create("Frame",{Size=UDim2.new(0.8,0,0,38),Position=UDim2.new(0.1,0,0,84),BackgroundTransparency=1,Parent=fr})
+            local cpb=create("TextButton",{Text="Copy Position",Font=Enum.Font.GothamBold,TextSize=13,TextColor3=Color3.new(1,1,1),Size=UDim2.new(1,0,1,0),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,0.5,0),BorderSizePixel=0,Parent=cpH})
+            create("UICorner",{CornerRadius=UDim.new(0,10),Parent=cpb})
+            makeInteractiveBtn(cpb, "accent", "accent_h", "accent_p")
+            fr:GetPropertyChangedSignal('Position'):Connect(function()
+                local vs=workspace.CurrentCamera.ViewportSize
+                pL.Text='{'..math.round(fr.AbsolutePosition.X/vs.X*1000)/1000 ..',0,'..math.round(fr.AbsolutePosition.Y/vs.Y*1000)/1000 ..',0}'
+            end)
+            cpb.MouseButton1Click:Connect(function()
+                local vs=workspace.CurrentCamera.ViewportSize
+                setclipboard('{'..math.round(fr.AbsolutePosition.X/vs.X*1000)/1000 ..',0,'..math.round(fr.AbsolutePosition.Y/vs.Y*1000)/1000 ..',0}')
+                cpb.Text="Copied!";task.delay(1.5,function() if cpb.Parent then cpb.Text="Copy Position" end end)
+            end)
+        end)
+    elseif t.name=="Anchor" then
+        btn.MouseButton1Click:Connect(function()
+            local sb=LocalPlayer.PlayerGui.StudioGui.SelectionBox
+            if not sb.Adornee then print('Select something first');return end
+            if sb.Adornee==workspace or sb.Adornee==game.ReplicatedStorage then print('Cannot select that');return end
+            local cnt,state=0,false
+            for _,v in pairs(sb.Adornee:GetDescendants()) do
+                if v:IsA('BasePart') and v:GetAttribute('SL_Anchored')~=nil then
+                    v:SetAttribute('SL_Anchored',not v:GetAttribute('SL_Anchored'));state=v:GetAttribute('SL_Anchored');cnt=cnt+1
+                end
+            end
+            print(cnt>0 and((state and'Anchored ' or'Unanchored ')..cnt..' part(s)') or 'No parts found')
+        end)
+    elseif t.name=="Collide" then
+        btn.MouseButton1Click:Connect(function()
+            local sb=LocalPlayer.PlayerGui.StudioGui.SelectionBox
+            if not sb.Adornee then print('Select something first');return end
+            if sb.Adornee==workspace or sb.Adornee==game.ReplicatedStorage then print('Cannot select that');return end
+            local cnt,state=0,false
+            for _,v in pairs(sb.Adornee:GetDescendants()) do
+                if v:IsA('BasePart') and v:GetAttribute('SL_CanCollide')~=nil then
+                    v:SetAttribute('SL_CanCollide',not v:GetAttribute('SL_CanCollide'));state=v:GetAttribute('SL_CanCollide');cnt=cnt+1
+                end
+            end
+            print(cnt>0 and((state and'Collided ' or'Uncollided ')..cnt..' part(s)') or 'No parts found')
+        end)
+    end
+end
+
+local tipFrame=create("Frame",{Size=UDim2.new(1,-10,0,38),Position=UDim2.new(0,5,1,-44),BorderSizePixel=0,Parent=ToolsPage, Theme={BackgroundColor3="input"}})
+create("UICorner",{CornerRadius=UDim.new(0,12),Parent=tipFrame})
+create("TextLabel",{Text="Tip: Select any model in workspace to use Anchor / Collide.  â€¢  Ctrl+K for command palette",Font=Enum.Font.Gotham,TextSize=12,BackgroundTransparency=1,Size=UDim2.new(1,-20,1,0),Position=UDim2.new(0,10,0,0),TextXAlignment=Enum.TextXAlignment.Left,Parent=tipFrame, Theme={TextColor3="dim"}})
+
+-- AI Page
+local AIPage=create("CanvasGroup",{Name="AskAI",Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,BackgroundColor3=Color3.new(1,1,1),Visible=false,Parent=Content, GroupTransparency=0})
+create("UIScale", {Name="PageUIScale", Scale=1, Parent=AIPage})
+tabPages["Ask AI"]=AIPage
+
+local Sidebar = create("Frame", {Size=UDim2.new(0, 164, 1, 0), Position=UDim2.new(0,0,0,0), BorderSizePixel=0, Parent=AIPage, Theme={BackgroundColor3="card"}})
+create("UICorner", {CornerRadius=UDim.new(0,14), Parent=Sidebar})
+create("UIStroke", {Thickness=1,Transparency=0.18, Parent=Sidebar, Theme={Color="border"}})
+
+local ChatArea = create("Frame", {Size=UDim2.new(1, -174, 1, 0), Position=UDim2.new(0,174,0,0), BackgroundTransparency=1, Parent=AIPage})
+
+local NewChatBtn = create("TextButton", {Text="+ New Chat", Font=Enum.Font.GothamBold, TextSize=13, TextColor3=Color3.new(1,1,1), Size=UDim2.new(1,-16,0,36), Position=UDim2.new(0,8,0,10), BorderSizePixel=0, Parent=Sidebar, ZIndex=5})
+create("UICorner", {CornerRadius=UDim.new(0,10), Parent=NewChatBtn})
+makeInteractiveBtn(NewChatBtn, "accent", "accent_h", "accent_p")
+
+local SessionsScroll = create("ScrollingFrame", {Size=UDim2.new(1,-8,1,-60), Position=UDim2.new(0,4,0,54), BackgroundTransparency=1, BorderSizePixel=0, ScrollBarThickness=2, CanvasSize=UDim2.new(0,0,0,0), AutomaticCanvasSize=Enum.AutomaticSize.Y, Parent=Sidebar, Theme={ScrollBarImageColor3="dim"}})
+create("UIListLayout", {SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,5), Parent=SessionsScroll})
+
+local aiHeader=create("Frame",{Size=UDim2.new(1,0,0,48),Position=UDim2.new(0,0,0,0),BackgroundTransparency=1,Parent=ChatArea})
+local aiLogo=create("ImageLabel",{
+    Image="rbxassetid://1091572761",Size=UDim2.new(0,36,0,36),
+    Position=UDim2.new(0,4,0,4),BackgroundTransparency=1,
+    ScaleType=Enum.ScaleType.Fit,Parent=aiHeader
+})
+create("UICorner",{CornerRadius=UDim.new(0,10),Parent=aiLogo})
+
+local plutoLabel=create("TextLabel",{
+    Text="Pluto",Font=Enum.Font.GothamBold,TextSize=20,TextColor3=Color3.new(1,1,1),
+    BackgroundTransparency=1,Size=UDim2.new(0,100,0,28),Position=UDim2.new(0,48,0,2),
+    TextXAlignment=Enum.TextXAlignment.Left,Parent=aiHeader
+})
+local plutoGrad=create("UIGradient",{
+    Color=ColorSequence.new({
+        ColorSequenceKeypoint.new(0,Color3.fromRGB(100,200,255)),
+        ColorSequenceKeypoint.new(0.35,Color3.fromRGB(138,122,255)),
+        ColorSequenceKeypoint.new(0.65,Color3.fromRGB(180,60,220)),
+        ColorSequenceKeypoint.new(1,Color3.fromRGB(130,80,255)),
+    }),
+    Rotation=8,
+    Parent=plutoLabel
+})
+
+task.spawn(function()
+    local offset=0
+    while plutoGrad.Parent do
+        local dt=RS.Heartbeat:Wait()
+        offset=(offset+dt*0.28)%1
+        plutoGrad.Offset=Vector2.new(offset*0.6,0)
+    end
+end)
+
+create("TextLabel",{Text="Powered by Google Gemma 4 â€¢ Nebula latency turbo",Font=Enum.Font.Gotham,TextSize=11,BackgroundTransparency=1,Size=UDim2.new(0.6,0,0,14),Position=UDim2.new(0,48,0,30),TextXAlignment=Enum.TextXAlignment.Left,Parent=aiHeader,Theme={TextColor3="dim"}})
+
+local ChatScroll=create("ScrollingFrame",{
+    Name="Chat",Size=UDim2.new(1,0,1,-110),Position=UDim2.new(0,0,0,54),
+    BorderSizePixel=0,
+    ScrollBarThickness=4,
+    CanvasSize=UDim2.new(0,0,0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,
+    Parent=ChatArea, Theme={BackgroundColor3="card", ScrollBarImageColor3="border"}
+})
+create("UICorner",{CornerRadius=UDim.new(0,14),Parent=ChatScroll})
+create("UIStroke",{Thickness=1,Transparency=0.2,Parent=ChatScroll,Theme={Color="border"}})
+create("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,12),Parent=ChatScroll})
+create("UIPadding",{PaddingTop=UDim.new(0,14),PaddingBottom=UDim.new(0,14),PaddingLeft=UDim.new(0,14),PaddingRight=UDim.new(0,14),Parent=ChatScroll})
+
+local InputRow=create("Frame",{Size=UDim2.new(1,0,0,48),Position=UDim2.new(0,0,1,-48),BackgroundTransparency=1,Parent=ChatArea})
+local AIInput=create("TextBox",{
+    PlaceholderText="Ask Pluto anythingâ€¦  âŒ˜â†µ to send",
+    Text="",
+    Font=Enum.Font.Gotham,TextSize=14,
+    TextXAlignment=Enum.TextXAlignment.Left,
+    BorderSizePixel=0,
+    ClearTextOnFocus=false,Parent=InputRow,
+    Size=UDim2.new(1,-86,1,0),
+    Theme={BackgroundColor3="input", TextColor3="text", PlaceholderColor3="dim"}
+})
+create("UICorner",{CornerRadius=UDim.new(0,12),Parent=AIInput})
+addFocusRing(AIInput)
+create("UIPadding",{PaddingLeft=UDim.new(0,16),PaddingRight=UDim.new(0,12),Parent=AIInput})
+
+local sBtnHolder=create("Frame",{Size=UDim2.new(0,78,1,0),Position=UDim2.new(1,-78,0,0),BackgroundTransparency=1,Parent=InputRow})
+local SendBtn=create("TextButton",{
+    Text="Send â†µ",Font=Enum.Font.GothamBold,TextSize=14,TextColor3=Color3.new(1,1,1),
+    Size=UDim2.new(1,0,1,0),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,0.5,0),
+    BorderSizePixel=0,Parent=sBtnHolder
+})
+create("UICorner",{CornerRadius=UDim.new(0,12),Parent=SendBtn})
+makeInteractiveBtn(SendBtn, "accent2", "accent2_h", "accent2_p")
+
+local chatHistory={}
+
+local function getHttpFunc()
+    if syn and syn.request then return syn.request end
+    if http_request then return http_request end
+    if request then return request end
+    if http and http.request then return http.request end
+    if fluxus and fluxus.request then return fluxus.request end
+    return nil
+end
+
+local function scanWorkspace()
+    local info=""
+    local topLevel={}
+    local counts={Model=0,Part=0,Script=0,LocalScript=0,ModuleScript=0,Folder=0,Tool=0,Other=0}
+    local totalDesc=0
+    pcall(function()
+        for _,child in pairs(workspace:GetChildren()) do
+            local cn=child.ClassName
+            if counts[cn] then counts[cn]=counts[cn]+1 else counts["Other"]=counts["Other"]+1 end
+            if #topLevel<15 then table.insert(topLevel,child.Name.."("..cn..")") end
+        end
+        totalDesc=#workspace:GetDescendants()
+    end)
+    info="Workspace: "..table.concat(topLevel,", ")
+    info=info.."\nDescendants:"..tostring(totalDesc)
+    info=info.."\nModels:"..counts.Model.." Parts:"..counts.Part.." Scripts:"..counts.Script.." LocalScripts:"..counts.LocalScript.." Folders:"..counts.Folder
+    local services={}
+    pcall(function()
+        local sps=game:GetService("StarterPlayer"):FindFirstChild("StarterPlayerScripts")
+        if sps then local c=0;for _ in pairs(sps:GetChildren()) do c=c+1 end;table.insert(services,"SPS:"..c) end
+    end)
+    pcall(function()
+        local sg=game:GetService("StarterGui");local c=0;for _ in pairs(sg:GetChildren()) do c=c+1 end;table.insert(services,"SG:"..c)
+    end)
+    pcall(function()
+        local rs=game:GetService("ReplicatedStorage");local c=0;for _ in pairs(rs:GetChildren()) do c=c+1 end;table.insert(services,"RS:"..c)
+    end)
+    if #services>0 then info=info.."\nServices: "..table.concat(services," | ") end
+    return info
+end
+
+local function getGameContext()
+    local plrs=#game.Players:GetPlayers()
+    local elapsed=os.time()-joinTime
+    local mins=math.floor(elapsed/60)
+    local secs=elapsed%60
+    local errors=0;local errList={}
+    pcall(function()
+        local output=game:GetService('LogService'):GetLogHistory()
+        for _,entry in pairs(output) do
+            if entry.messageType==Enum.MessageType.MessageError then
+                errors=errors+1
+                if #errList<8 then table.insert(errList,entry.message) end
+            end
+        end
+    end)
+    local gameName="Unknown"
+    pcall(function() gameName=game:GetService('MarketplaceService'):GetProductInfo(game.PlaceId).Name end)
+    local info="Game:"..tostring(gameName).." PlaceId:"..tostring(game.PlaceId)
+    info=info.."\nPlayers:"..tostring(plrs).." User:"..tostring(LocalPlayer.Name).."("..tostring(LocalPlayer.UserId)..")"
+    info=info.."\nJoined:"..tostring(mins).."m"..tostring(secs).."s ago Errors:"..tostring(errors)
+    if #errList>0 then info=info.."\n"..table.concat(errList,"\n") end
+    info=info.."\n"..scanWorkspace()
+    return info
+end
+
+local function parseRichText(raw)
+    local p=raw
+    p=p:gsub("%*%*(.-)%*%*","<b>%1</b>")
+    p=p:gsub("%*(.-)%*","<i>%1</i>")
+    p=p:gsub("^# (.-)\n","<b><font size=\"16\">%1</font></b>\n")
+    p=p:gsub("\n# (.-)\n","\n<b><font size=\"16\">%1</font></b>\n")
+    p=p:gsub("^# (.-)$","<b><font size=\"16\">%1</font></b>")
+    p=p:gsub("\n## (.-)\n","\n<b><font size=\"14\">%1</font></b>\n")
+    p=p:gsub("^## (.-)$","<b><font size=\"14\">%1</font></b>")
+    return p
+end
+
+local function detectScriptPlacement(code,fullText)
+    local lower=(code.."\n"..(fullText or "")):lower()
+    if lower:find("screengui") or lower:find("textbutton") or lower:find("textlabel") or lower:find("playergui") or lower:find("uilistlayout") or lower:find("uicorner") then
+        return "LocalScript","StarterGui","UI script â†’ StarterGui"
+    end
+    if lower:find("starterplayerscripts") or (lower:find("localplayer") and (lower:find("camera") or lower:find("userinputservice") or lower:find("mouse"))) then
+        return "LocalScript","StarterPlayerScripts","Client â†’ StarterPlayerScripts"
+    end
+    if lower:find("startercharacterscripts") or (lower:find("humanoid") and lower:find("character") and not lower:find("playeradded")) then
+        return "LocalScript","StarterCharacterScripts","Character â†’ StarterCharacterScripts"
+    end
+    if lower:find("playeradded") or lower:find("serverscriptservice") or lower:find("serverstorage") or lower:find("datastoreservice") or (lower:find("remoteevent") and lower:find("onserverevent")) then
+        return "Script","ServerScriptService","Server â†’ ServerScriptService"
+    end
+    if code:match("^%s*return%s+") then
+        return "ModuleScript","ReplicatedStorage","Module â†’ ReplicatedStorage"
+    end
+    return "LocalScript","StarterPlayerScripts","LocalScript â†’ StarterPlayerScripts"
+end
+
+local function getServiceSafe(serviceName)
+    local s = nil
+    pcall(function()
+        if serviceName=="StarterGui" then s=game:GetService("StarterGui")
+        elseif serviceName=="StarterPlayerScripts" then s=game:GetService("StarterPlayer"):FindFirstChild("StarterPlayerScripts")
+        elseif serviceName=="StarterCharacterScripts" then s=game:GetService("StarterPlayer"):FindFirstChild("StarterCharacterScripts")
+        elseif serviceName=="ServerScriptService" then s=game:GetService("ServerScriptService")
+        elseif serviceName=="ReplicatedStorage" then s=game:GetService("ReplicatedStorage")
+        end
+    end)
+    return s or workspace
+end
+
+local function addMessage(text, isUser, skipAnim)
+    local bubble = create("Frame",{
+        Size=UDim2.new(0.98,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,
+        BorderSizePixel=0,Parent=ChatScroll,
+        Theme={BackgroundColor3=isUser and "chatUser" or "chatAI"}
+    })
+    create("UICorner",{CornerRadius=UDim.new(0,14),Parent=bubble})
+    create("UIStroke",{Thickness=1.5, Parent=bubble, Theme={Color=isUser and "chatUserStroke" or "chatAIStroke"}})
+    create("UIPadding",{PaddingTop=UDim.new(0,12),PaddingBottom=UDim.new(0,12),PaddingLeft=UDim.new(0,14),PaddingRight=UDim.new(0,14),Parent=bubble})
+
+    local bScale = create("UIScale", {Scale=skipAnim and 1 or 0.88, Parent=bubble})
+    bubble.BackgroundTransparency = skipAnim and 0 or 0.3
+    if not skipAnim then tween(bScale, {Scale=1}, 0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out); tween(bubble,{BackgroundTransparency=0},0.25) end
+
+    create("TextLabel",{
+        Text=isUser and tostring(LocalPlayer.Name) or "Pluto",
+        Font=Enum.Font.GothamBold,TextSize=12,
+        BackgroundTransparency=1,Size=UDim2.new(1,0,0,16),
+        TextXAlignment=Enum.TextXAlignment.Left,Parent=bubble,
+        Theme={TextColor3=isUser and "accent" or "accent2"}
+    })
+    local container=create("Frame",{Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,Position=UDim2.new(0,0,0,22),BackgroundTransparency=1,Parent=bubble})
+    create("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,8),Parent=container})
+
+    local order=0
+    local remaining=text or ""
+    local fullText=remaining
+
+    while true do
+        local csStart=remaining:find("```")
+        if not csStart then
+            if #remaining>0 then
+                order=order+1
+                create("TextLabel",{
+                    Text=parseRichText(remaining),RichText=true,
+                    Font=Enum.Font.Gotham,TextSize=13,
+                    BackgroundTransparency=1,Size=UDim2.new(1,0,0,0),
+                    AutomaticSize=Enum.AutomaticSize.Y,
+                    TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,
+                    LayoutOrder=order,Parent=container,Theme={TextColor3="text"}
+                })
+            end
+            break
+        end
+        local before=remaining:sub(1,csStart-1)
+        if #before>0 then
+            order=order+1
+            create("TextLabel",{
+                Text=parseRichText(before),RichText=true,
+                Font=Enum.Font.Gotham,TextSize=13,
+                BackgroundTransparency=1,Size=UDim2.new(1,0,0,0),
+                AutomaticSize=Enum.AutomaticSize.Y,
+                TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,
+                LayoutOrder=order,Parent=container,Theme={TextColor3="text"}
+            })
+        end
+        local rest=remaining:sub(csStart+3)
+        local langEnd=rest:find("\n")
+        if langEnd then
+            local ml=rest:sub(1,langEnd-1):match("^%s*(%w+)%s*$")
+            if ml then rest=rest:sub(langEnd+1) end
+        end
+        local ceStart=rest:find("```")
+        local codeText
+        if ceStart then codeText=rest:sub(1,ceStart-1);remaining=rest:sub(ceStart+3)
+        else codeText=rest;remaining="" end
+        codeText=codeText:gsub("^[\r\n]+",""):gsub("[\r\n%s]+$","")
+
+        local lineCount=#codeText:split("\n")
+        local scrollH=math.min(math.max(lineCount*16+18,56),300)
+
+        order=order+1
+        local codeOuter=create("Frame",{
+            Size=UDim2.new(1,0,0,scrollH+36),
+            BorderSizePixel=0,LayoutOrder=order,
+            ClipsDescendants=true,Parent=container, Theme={BackgroundColor3="code"}
+        })
+        create("UICorner",{CornerRadius=UDim.new(0,12),Parent=codeOuter})
+        create("UIStroke",{Thickness=1,Transparency=0.12,Parent=codeOuter, Theme={Color="border"}})
+
+        local topBar=create("Frame",{
+            Size=UDim2.new(1,0,0,28),BorderSizePixel=0,Parent=codeOuter,Theme={BackgroundColor3="input"}
+        })
+        create("UICorner",{CornerRadius=UDim.new(0,12),Parent=topBar})
+        create("Frame",{Size=UDim2.new(1,0,0,10),Position=UDim2.new(0,0,1,-10),BorderSizePixel=0,Parent=topBar,Theme={BackgroundColor3="input"}})
+        create("TextLabel",{Text="lua  â€¢  pluto",Font=Enum.Font.Code,TextSize=12,BackgroundTransparency=1,Size=UDim2.new(0,120,1,0),Position=UDim2.new(0,12,0,0),TextXAlignment=Enum.TextXAlignment.Left,Parent=topBar,Theme={TextColor3="dim"}})
+
+        local copyBtn=create("TextButton",{
+            Text="Copy",Font=Enum.Font.GothamSemibold,TextSize=12,
+            BackgroundTransparency=1,Size=UDim2.new(0,52,1,0),Position=UDim2.new(1,-128,0,0),
+            AutoButtonColor=false,Parent=topBar,Theme={TextColor3="accent"}
+        })
+        local insertBtn=create("TextButton",{
+            Text="Insert",Font=Enum.Font.GothamSemibold,TextSize=12,
+            BackgroundTransparency=1,Size=UDim2.new(0,60,1,0),Position=UDim2.new(1,-70,0,0),
+            AutoButtonColor=false,Parent=topBar,Theme={TextColor3="accent2"}
+        })
+        copyBtn.MouseEnter:Connect(function() tween(copyBtn, {TextColor3=C.accent_h}, 0.15) end)
+        copyBtn.MouseLeave:Connect(function() tween(copyBtn, {TextColor3=C.accent}, 0.15) end)
+        insertBtn.MouseEnter:Connect(function() tween(insertBtn, {TextColor3=C.accent2_h}, 0.15) end)
+        insertBtn.MouseLeave:Connect(function() tween(insertBtn, {TextColor3=C.accent2}, 0.15) end)
+
+        local codeScroll=create("ScrollingFrame",{
+            Size=UDim2.new(1,-4,0,scrollH),
+            Position=UDim2.new(0,2,0,30),
+            BackgroundTransparency=1,BorderSizePixel=0,
+            ScrollBarThickness=4,
+            CanvasSize=UDim2.new(0,0,0,0),
+            AutomaticCanvasSize=Enum.AutomaticSize.XY,
+            ScrollingDirection=Enum.ScrollingDirection.XY,
+            Parent=codeOuter,Theme={ScrollBarImageColor3="dim"}
+        })
+        create("UIPadding",{PaddingTop=UDim.new(0,8),PaddingBottom=UDim.new(0,8),PaddingLeft=UDim.new(0,12),PaddingRight=UDim.new(0,12),Parent=codeScroll})
+        create("TextLabel",{
+            Text=codeText,Font=Enum.Font.Code,TextSize=13,TextColor3=Color3.fromRGB(200,240,210),
+            BackgroundTransparency=1,Size=UDim2.new(0,0,0,0),
+            AutomaticSize=Enum.AutomaticSize.XY,
+            TextWrapped=false,TextXAlignment=Enum.TextXAlignment.Left,
+            TextYAlignment=Enum.TextYAlignment.Top,Parent=codeScroll
+        })
+
+        local scriptType,capDest,placementHint=detectScriptPlacement(codeText,fullText)
+        create("TextLabel",{
+            Text="â†’ "..placementHint,Font=Enum.Font.Gotham,TextSize=11,
+            TextColor3=Color3.fromRGB(140,170,155),BackgroundTransparency=1,
+            Size=UDim2.new(1,-12,0,16),Position=UDim2.new(0,10,1,-18),
+            TextXAlignment=Enum.TextXAlignment.Left,Parent=codeOuter
+        })
+
+        local capturedCode=codeText
+        local capType,capDestFinal=scriptType,capDest
+
+        copyBtn.MouseButton1Click:Connect(function()
+            pcall(function() setclipboard(capturedCode) end)
+            copyBtn.Text="âœ“"
+            task.delay(1.4,function() if copyBtn.Parent then copyBtn.Text="Copy" end end)
+        end)
+
+        insertBtn.MouseButton1Click:Connect(function()
+            pcall(function()
+                local codeBox=game:GetService('ReplicatedStorage').StudioLiteFolder.RigEditScriptFolder.DanceScript.SL_CodeTextBox:Clone()
+                codeBox.Text="--// Generated by Pluto Nebula\n--// Place: "..capDestFinal.."\n\n"..capturedCode
+                local parent=getServiceSafe(capDestFinal)
+                local newScript=Instance.new(capType,parent)
+                newScript.Name="Pluto_"..capType
+                codeBox.Parent=newScript
+                insertBtn.Text="âœ“"
+                task.delay(1.8,function() if insertBtn.Parent then insertBtn.Text="Insert" end end)
+            end)
+        end)
+    end
+
+    task.defer(function()
+        ChatScroll.CanvasPosition=Vector2.new(0,math.max(0,ChatScroll.AbsoluteCanvasSize.Y))
+    end)
+    return bubble
+end
+
+local function renderSessions()
+    for _, child in ipairs(SessionsScroll:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
+    end
+
+    for _, session in ipairs(loadedSessions) do
+        local sBtn = create("TextButton", {
+            Text="", Size=UDim2.new(1,-8,0,36), BorderSizePixel=0, Parent=SessionsScroll,
+            Theme={BackgroundColor3=currentSessionId==session.id and "hover" or "card2"}
+        })
+        create("UICorner", {CornerRadius=UDim.new(0,10), Parent=sBtn})
+        if currentSessionId==session.id then
+            create("UIStroke", {Thickness=1.5, Transparency=0.2, Parent=sBtn, Theme={Color="accent"}})
+        end
+
+        local sTitle = create("TextLabel", {
+            Text=session.title, Font=Enum.Font.GothamSemibold, TextSize=12,
+            BackgroundTransparency=1, Size=UDim2.new(1,-34,1,0), Position=UDim2.new(0,10,0,0),
+            TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, Parent=sBtn,
+            Theme={TextColor3=currentSessionId==session.id and "accent" or "text"}
+        })
+
+        local optBtn = create("TextButton", {
+            Text="â‹¯", Font=Enum.Font.GothamBold, TextSize=14,
+            BackgroundTransparency=1, Size=UDim2.new(0,26,1,0), Position=UDim2.new(1,-26,0,0), Parent=sBtn,
+            Theme={TextColor3="dim"}
+        })
+
+        local confirmDelete = false
+        optBtn.MouseButton1Click:Connect(function()
+            if confirmDelete then
+                deleteSessionFromDisk(session.id)
+                if currentSessionId == session.id then
+                    currentSessionId = nil
+                    chatHistory = {}
+                    for _, c in ipairs(ChatScroll:GetChildren()) do
+                        if c:IsA("Frame") and c.Name ~= "UIListLayout" and c.Name ~= "UIPadding" then c:Destroy() end
+                    end
+                end
+                renderSessions()
             else
-                print("❌ Remote الخاص بالاسم غير موجود (قد يكون تغير في التحديث)")
+                confirmDelete = true
+                tween(optBtn, {TextColor3=C.red}, 0.15)
+                optBtn.Text = "ðŸ—‘"
+                task.delay(2.5, function()
+                    if optBtn.Parent and confirmDelete then
+                        confirmDelete = false
+                        optBtn.Text = "â‹¯"
+                        tween(optBtn, {TextColor3=C.dim}, 0.15)
+                    end
+                end)
+            end
+            return
+        end)
+
+        sBtn.MouseButton1Click:Connect(function()
+            if currentSessionId == session.id then return end
+            currentSessionId = session.id
+            chatHistory = {}
+            for _, msg in ipairs(session.history) do
+                table.insert(chatHistory, {role=msg.role, content=msg.content})
+            end
+
+            for _, c in ipairs(ChatScroll:GetChildren()) do
+                if c:IsA("Frame") and c.Name ~= "UIListLayout" and c.Name ~= "UIPadding" then c:Destroy() end
+            end
+
+            for _, msg in ipairs(chatHistory) do
+                addMessage(msg.content, msg.role == "user", true)
+            end
+            renderSessions()
+
+            task.defer(function() ChatScroll.CanvasPosition=Vector2.new(0,math.max(0,ChatScroll.AbsoluteCanvasSize.Y)) end)
+        end)
+
+        sBtn.MouseEnter:Connect(function() if currentSessionId~=session.id then tween(sBtn, {BackgroundColor3=C.hover}, 0.12) end end)
+        sBtn.MouseLeave:Connect(function() if currentSessionId~=session.id then tween(sBtn, {BackgroundColor3=C.card2}, 0.12) end end)
+    end
+end
+renderSessions()
+
+NewChatBtn.MouseButton1Click:Connect(function()
+    if currentSessionId == nil and #chatHistory == 0 then return end
+    currentSessionId = nil
+    chatHistory = {}
+    for _, c in ipairs(ChatScroll:GetChildren()) do
+        if c:IsA("Frame") and c.Name ~= "UIListLayout" and c.Name ~= "UIPadding" then c:Destroy() end
+    end
+    renderSessions()
+    addMessage("Fresh nebula canvas. What are we scripting?", false, false)
+end)
+
+local thinkingBubble=nil
+local thinkingConn=nil
+local thinkingDots=0
+local tScale=nil
+
+local function showThinking()
+    if thinkingBubble then return end
+    thinkingBubble=create("Frame",{
+        Size=UDim2.new(0.98,0,0,52),
+        BorderSizePixel=0,Parent=ChatScroll,
+        Theme={BackgroundColor3="chatAI"}
+    })
+    create("UICorner",{CornerRadius=UDim.new(0,14),Parent=thinkingBubble})
+    create("UIStroke",{Thickness=1.5, Parent=thinkingBubble, Theme={Color="chatAIStroke"}})
+    create("UIPadding",{PaddingTop=UDim.new(0,12),PaddingBottom=UDim.new(0,12),PaddingLeft=UDim.new(0,14),PaddingRight=UDim.new(0,14),Parent=thinkingBubble})
+    create("TextLabel",{Text="Pluto â€¢ nebula thinking",Font=Enum.Font.GothamBold,TextSize=12,BackgroundTransparency=1,Size=UDim2.new(1,0,0,14),TextXAlignment=Enum.TextXAlignment.Left,Parent=thinkingBubble,Theme={TextColor3="accent2"}})
+    create("TextLabel",{
+        Name="ThinkText",Text="synthesizingâ€¦",Font=Enum.Font.Gotham,TextSize=13,
+        BackgroundTransparency=1,Size=UDim2.new(1,0,0,16),Position=UDim2.new(0,0,0,20),
+        TextXAlignment=Enum.TextXAlignment.Left,Parent=thinkingBubble, Theme={TextColor3="dim"}
+    })
+
+    tScale = create("UIScale", {Scale=0.92, Parent=thinkingBubble})
+    tween(tScale, {Scale=1}, 0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+    thinkingDots=0
+    thinkingConn=RS.Heartbeat:Connect(function()
+        if not thinkingBubble or not thinkingBubble.Parent then
+            if thinkingConn then thinkingConn:Disconnect();thinkingConn=nil end;return
+        end
+        thinkingDots=(thinkingDots+1)%120
+        local d=string.rep("Â·",math.floor(thinkingDots/30)%4+1)
+        local lbl=thinkingBubble:FindFirstChild("ThinkText")
+        if lbl then lbl.Text="synthesizing "..d end
+    end)
+    task.defer(function()
+        ChatScroll.CanvasPosition=Vector2.new(0,math.max(0,ChatScroll.AbsoluteCanvasSize.Y))
+    end)
+end
+
+local function hideThinking()
+    if thinkingConn then thinkingConn:Disconnect();thinkingConn=nil end
+    if thinkingBubble and tScale then
+        local tw=tween(tScale, {Scale=0.9}, 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+        tween(thinkingBubble,{BackgroundTransparency=0.6},0.18)
+        tw.Completed:Wait()
+        if thinkingBubble then thinkingBubble:Destroy();thinkingBubble=nil end
+    end
+end
+
+-- AI agreement overlay
+local aiAgreementOverlay = create("Frame", {Size=UDim2.new(1,0,1,0), ZIndex=50, BackgroundTransparency=0.25, BackgroundColor3=Color3.new(0,0,0), Parent=AIPage})
+local aiAgBox = create("Frame", {Size=UDim2.new(0,360,0,200), Position=UDim2.new(0.5,0,0.5,0), AnchorPoint=Vector2.new(0.5,0.5), BorderSizePixel=0, ZIndex=51, Parent=aiAgreementOverlay, Theme={BackgroundColor3="card"}})
+create("UICorner", {CornerRadius=UDim.new(0,16), Parent=aiAgBox})
+create("UIStroke", {Thickness=1.5, Transparency=0.1, Parent=aiAgBox, Theme={Color="border"}})
+local aiAgScale = create("UIScale", {Scale=0, Parent=aiAgBox})
+
+create("TextLabel", {Text="Pluto Nebula", Font=Enum.Font.GothamBold, TextSize=20, Size=UDim2.new(1,0,0,40), Position=UDim2.new(0,0,0,14), BackgroundTransparency=1, ZIndex=52, Parent=aiAgBox, Theme={TextColor3="accent"}})
+create("TextLabel", {Text="Pluto might hallucinate. Verify before inserting. Script insert is experimental in Nebula mode â€” review code in the preview block first.", Font=Enum.Font.Gotham, TextSize=13, Size=UDim2.new(1,-40,0,84), Position=UDim2.new(0,20,0,54), TextWrapped=true, BackgroundTransparency=1, ZIndex=52, Parent=aiAgBox, Theme={TextColor3="text"}})
+
+local aiAgBtn = create("TextButton", {Text="I understand  â†’", Font=Enum.Font.GothamBold, TextSize=14, TextColor3=Color3.new(1,1,1), Size=UDim2.new(0,150,0,40), Position=UDim2.new(0.5,-75,1,-56), BorderSizePixel=0, ZIndex=52, Parent=aiAgBox})
+create("UICorner", {CornerRadius=UDim.new(0,10), Parent=aiAgBtn})
+makeInteractiveBtn(aiAgBtn, "accent", "accent_h", "accent_p")
+
+if globalState.hasSeenAIAgreement then
+    aiAgreementOverlay.Visible = false
+else
+    tween(aiAgScale, {Scale=1}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+end
+
+aiAgBtn.MouseButton1Click:Connect(function()
+    globalState.hasSeenAIAgreement = true
+    saveGlobalState()
+    local tw = tween(aiAgScale, {Scale=0}, 0.28, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+    tween(aiAgreementOverlay, {BackgroundTransparency=1}, 0.28)
+    tw.Completed:Wait()
+    aiAgreementOverlay.Visible = false
+end)
+
+local aiLock=false
+local function sendToPluto(msg)
+    if aiLock or not msg or msg=="" then return end
+    aiLock=true
+
+    tween(SendBtn, {Size=UDim2.new(1,0,0.86,0)}, 0.15)
+    SendBtn.Text="â€¦"
+
+    addMessage(msg,true)
+    table.insert(chatHistory,{role="user",content=msg})
+    while #chatHistory>16 do table.remove(chatHistory,1) end
+    showThinking()
+
+    if not currentSessionId then
+        currentSessionId = tostring(os.time())
+        local title = msg:sub(1, 18)
+        if #msg > 18 then title = title .. "â€¦" end
+        saveSessionToDisk(currentSessionId, title, chatHistory)
+        renderSessions()
+    else
+        local title = "Session"
+        for _, s in ipairs(loadedSessions) do if s.id == currentSessionId then title = s.title break end end
+        saveSessionToDisk(currentSessionId, title, chatHistory)
+    end
+
+    local systemPrompt="You are Pluto Nebula, a smart Roblox Lua coding assistant for Roblox Studio Lite. When asked what AI you are, respond: \"Pluto Nebula, Powered by Google Gemma 4\".\n"
+    .."You ONLY write Roblox Lua code when asked for code. You help with scripting, debugging, and game design in Roblox.\n"
+    .."Use markdown: **bold**, *italic*, # headers, ```lua code blocks.\n"
+    .."Script placement rules:\n"
+    .."- UI scripts â†’ LocalScript in StarterGui\n"
+    .."- Client input/camera â†’ LocalScript in StarterPlayerScripts\n"
+    .."- Character/humanoid â†’ LocalScript in StarterCharacterScripts\n"
+    .."- Server logic â†’ Script in ServerScriptService\n"
+    .."- Shared modules â†’ ModuleScript in ReplicatedStorage\n"
+    .."Always say WHERE to place the script before each code block.\n"
+    .."You can read workspace structure to understand the game. Analyze errors and debug code.\n"
+    .."Keep responses helpful and concise. Running in Roblox Studio Lite (PlaceId: 10959918411).\n\n"
+    .."You have SPECIAL POWERS to control the UI if the user asks you to. You can change the Theme or the UI Scale by exactly outputting these tags anywhere in your response:\n"
+    .."- [UI:THEME:Nebula], [UI:THEME:Cyber], [UI:THEME:Blurple], [UI:THEME:Lite2], or [UI:THEME:Gold]\n"
+    .."- [UI:SCALE:Small], [UI:SCALE:Medium], [UI:SCALE:Large], [UI:SCALE:XL]\n"
+    .."Example: If the user says 'make the UI bigger', you say 'Sure! [UI:SCALE:Large]'\n\n"
+    .."Session:\n"..getGameContext()
+
+    local messages={{role="system",content=systemPrompt}}
+    for _,m in ipairs(chatHistory) do table.insert(messages,m) end
+
+    local bodyJson
+    local encodeOk=pcall(function()
+        bodyJson=HttpService:JSONEncode({
+            model="google/gemma-3n-e4b-it:free",
+            messages=messages,
+            max_tokens=1400,
+        })
+    end)
+
+    if not encodeOk then
+        hideThinking()
+        addMessage("*Error encoding request.*",false)
+        aiLock=false;SendBtn.Text="Send â†µ";tween(SendBtn,{Size=UDim2.new(1,0,1,0)},0.3,Enum.EasingStyle.Back);return
+    end
+
+    local httpFunc=getHttpFunc()
+    if not httpFunc then
+        hideThinking()
+        addMessage("*No HTTP function found.*",false)
+        aiLock=false;SendBtn.Text="Send â†µ";tween(SendBtn,{Size=UDim2.new(1,0,1,0)},0.3,Enum.EasingStyle.Back);return
+    end
+
+    task.spawn(function()
+        local ok,result=pcall(function()
+            return httpFunc({
+                Url="https://openrouter.ai/api/v1/chat/completions",
+                Method="POST",
+                Headers={
+                    ["Content-Type"]="application/json",
+                    ["Authorization"]="Bearer "..getKey(),
+                    ["HTTP-Referer"]="https://costudio.com",
+                    ["X-Title"]="CoStudio Pluto Nebula",
+                },
+                Body=bodyJson,
+            })
+        end)
+
+        hideThinking()
+
+        if not ok then
+            addMessage("*Request failed: "..tostring(result).."*",false)
+            aiLock=false;SendBtn.Text="Send â†µ";tween(SendBtn,{Size=UDim2.new(1,0,1,0)},0.3,Enum.EasingStyle.Back);return
+        end
+        if not result then
+            addMessage("*No response. Check internet.*",false)
+            aiLock=false;SendBtn.Text="Send â†µ";tween(SendBtn,{Size=UDim2.new(1,0,1,0)},0.3,Enum.EasingStyle.Back);return
+        end
+
+        local respBody=nil
+        if type(result)=="table" then
+            respBody=result.Body or result.body or nil
+            local sc=result.StatusCode or result.statusCode or result.status_code or 0
+            if sc and sc~=200 and sc~=0 then
+                addMessage("*API status "..tostring(sc)..": "..tostring(respBody or "empty").."*",false)
+                aiLock=false;SendBtn.Text="Send â†µ";tween(SendBtn,{Size=UDim2.new(1,0,1,0)},0.3,Enum.EasingStyle.Back);return
+            end
+        elseif type(result)=="string" then respBody=result end
+
+        if not respBody or respBody=="" then
+            addMessage("*Empty response. Try again.*",false)
+            aiLock=false;SendBtn.Text="Send â†µ";tween(SendBtn,{Size=UDim2.new(1,0,1,0)},0.3,Enum.EasingStyle.Back);return
+        end
+
+        local decodeOk,parsed=pcall(function() return HttpService:JSONDecode(respBody) end)
+        if not decodeOk then
+            addMessage("*Parse error.*",false)
+            aiLock=false;SendBtn.Text="Send â†µ";tween(SendBtn,{Size=UDim2.new(1,0,1,0)},0.3,Enum.EasingStyle.Back);return
+        end
+        if parsed.error then
+            local e=parsed.error
+            if type(e)=="table" then e=e.message or HttpService:JSONEncode(e) end
+            addMessage("*API Error: "..tostring(e).."*",false)
+            aiLock=false;SendBtn.Text="Send â†µ";tween(SendBtn,{Size=UDim2.new(1,0,1,0)},0.3,Enum.EasingStyle.Back);return
+        end
+        if parsed.choices and parsed.choices[1] and parsed.choices[1].message then
+            local reply=parsed.choices[1].message.content
+            if reply and reply~="" then
+
+                local newTheme = reply:match("%[UI:THEME:([%w]+)%]")
+                local newScale = reply:match("%[UI:SCALE:([%w]+)%]")
+
+                if newTheme and themes[newTheme] then
+                    applyTheme(newTheme)
+                    saveSettings()
+                    updateSettingsUI()
+                    reply = reply:gsub("%[UI:THEME:%w+%]", "*(nebula â†’ " .. newTheme .. ")*")
+                end
+
+                if newScale then
+                    local sVal = nil
+                    if newScale == "Small" then sVal = 0.85
+                    elseif newScale == "Medium" then sVal = 1.0
+                    elseif newScale == "Large" then sVal = 1.15
+                    elseif newScale == "XL" then sVal = 1.3 end
+
+                    if sVal then
+                        targetUIScale = sVal
+                        tween(MainScale, {Scale=targetUIScale}, 0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                        saveSettings()
+                        updateSettingsUI()
+                        reply = reply:gsub("%[UI:SCALE:%w+%]", "*(scale â†’ " .. newScale .. ")*")
+                    end
+                end
+
+                table.insert(chatHistory,{role="assistant",content=reply})
+                addMessage(reply,false)
+
+                local title = "Session"
+                for _, s in ipairs(loadedSessions) do if s.id == currentSessionId then title = s.title break end end
+                saveSessionToDisk(currentSessionId, title, chatHistory)
+            else
+                addMessage("*Empty reply. Try rephrasing.*",false)
             end
         else
-            print("❌ RemoteStorage غير موجود")
+            addMessage("*Unexpected response.*",false)
         end
+        aiLock=false;SendBtn.Text="Send â†µ";tween(SendBtn,{Size=UDim2.new(1,0,1,0)},0.3,Enum.EasingStyle.Back)
+    end)
+end
+
+SendBtn.MouseButton1Click:Connect(function()
+    local msg=AIInput.Text:gsub("^%s+",""):gsub("%s+$","")
+    if msg~="" then AIInput.Text="";sendToPluto(msg) end
+end)
+AIInput.FocusLost:Connect(function(entered)
+    if entered then
+        local msg=AIInput.Text:gsub("^%s+",""):gsub("%s+$","")
+        if msg~="" then AIInput.Text="";sendToPluto(msg) end
     end
 end)
 
--- ============================================
--- 6. زر إضافي: معلومات
--- ============================================
-MainTab:CreateButton("ℹ️ معلومات السكربت", function()
-    print("===== معلومات السكربت =====")
-    print("📌 المطور: أنت")
-    print("📌 الإصدار: 1.0")
-    print("📌 الميزات: طيران، انتقال، تغيير اسم")
-    print("📌 تاريخ: " .. os.date("%Y-%m-%d %H:%M:%S"))
+task.defer(function()
+    if #chatHistory == 0 then
+        addMessage("Hey! I'm **Pluto Nebula**, your Roblox coding assistant. Powered by Google Gemma 3n. Ask me anything â€” I can script, debug, and even restyle this UI. Try: *â€œmake it cyberâ€* or *Ctrl+K*.",false,true)
+    end
 end)
 
--- ============================================
--- 7. تحديث قائمة اللاعبين تلقائياً
--- ============================================
-Players.PlayerAdded:Connect(function()
-    print("🔄 لاعب جديد دخل السيرفر")
+-- About Page
+local AboutPage=create("CanvasGroup",{Name="About",Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,BackgroundColor3=Color3.new(1,1,1),Visible=false,Parent=Content, GroupTransparency=0})
+create("UIScale", {Name="PageUIScale", Scale=1, Parent=AboutPage})
+tabPages["About"]=AboutPage
+
+local aboutScroll=create("ScrollingFrame",{
+    Size=UDim2.new(1,-10,1,-10),Position=UDim2.new(0,5,0,5),
+    BackgroundTransparency=1,BorderSizePixel=0,
+    ScrollBarThickness=4,
+    CanvasSize=UDim2.new(0,0,0,420),Parent=AboutPage,
+    Theme={ScrollBarImageColor3="accent"}
+})
+create("UIPadding",{PaddingTop=UDim.new(0,10),PaddingLeft=UDim.new(0,10),PaddingRight=UDim.new(0,10),Parent=aboutScroll})
+create("TextLabel",{Text="CoStudio Nebula",Font=Enum.Font.GothamBold,TextSize=26,BackgroundTransparency=1,Size=UDim2.new(1,0,0,35),TextXAlignment=Enum.TextXAlignment.Left,Parent=aboutScroll, Theme={TextColor3="accent"}})
+create("TextLabel",{Text="v"..u1.." â€¢ fluid UI rewrite",
+    Font=Enum.Font.Gotham,TextSize=13,BackgroundTransparency=1,Size=UDim2.new(1,0,0,20),Position=UDim2.new(0,0,0,32),TextXAlignment=Enum.TextXAlignment.Left,Parent=aboutScroll, Theme={TextColor3="dim"}})
+create("TextLabel",{
+    Text="This tool was discontinued originally, and is originally made by Allvideo, but it is now being continued by vince, the CEO of Halo Team, but the original credits still go to Allvideo.\n\nThe anchor, collide and model inserting method is also made by Allvideo.\n\nNebula UI â€” full glassmorphism rewrite, spring physics, command palette (Ctrl+K), magnetic buttons, particle field, 5 themes incl. Nebula & Cyber, session persistence, Pluto Gemma 3n integration.\n\nThank you Allvideo.",
+    Font=Enum.Font.Gotham,TextSize=14,BackgroundTransparency=1,Size=UDim2.new(1,0,0,210),Position=UDim2.new(0,0,0,60),
+    TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,Parent=aboutScroll, Theme={TextColor3="text"}
+})
+create("TextLabel",{Text="Credits",Font=Enum.Font.GothamBold,TextSize=16,BackgroundTransparency=1,Size=UDim2.new(1,0,0,26),Position=UDim2.new(0,0,0,278),TextXAlignment=Enum.TextXAlignment.Left,Parent=aboutScroll, Theme={TextColor3="accent2"}})
+local credits={{"Allvideo","Original creator, core systems"},{"Vince","Nebula UI, Pluto, command palette, spring motion"},{"Halo Team","Continued development & support"}}
+for i,c in ipairs(credits) do
+    create("TextLabel",{Text="<b>"..c[1].."</b>  â€”  "..c[2],RichText=true,Font=Enum.Font.Gotham,TextSize=13,BackgroundTransparency=1,Size=UDim2.new(1,0,0,20),Position=UDim2.new(0,0,0,304+i*22),TextXAlignment=Enum.TextXAlignment.Left,Parent=aboutScroll, Theme={TextColor3="dim"}})
+end
+
+-- INTRO
+local IntroOverlay = create("Frame", {Size=UDim2.new(1,0,1,0), ZIndex=100, Parent=MainFrame, Theme={BackgroundColor3="bg"}})
+create("UICorner",{CornerRadius=UDim.new(0,22),Parent=IntroOverlay})
+local iTitle = create("TextLabel", {Text="CoStudio", Font=Enum.Font.GothamBold, TextSize=38, Size=UDim2.new(1,0,0,44), Position=UDim2.new(0,0,0.5,-34), TextTransparency=1, BackgroundTransparency=1, ZIndex=101, Parent=IntroOverlay, Theme={TextColor3="accent"}})
+local iTitleScale = create("UIScale", {Scale=0.5, Parent=iTitle})
+local iSub = create("TextLabel", {Text="NEBULA  â€¢  v"..u1, Font=Enum.Font.Gotham, TextSize=13, Size=UDim2.new(1,0,0,20), Position=UDim2.new(0,0,0.5,10), TextTransparency=1, BackgroundTransparency=1, ZIndex=101, Parent=IntroOverlay, Theme={TextColor3="dim"}})
+local iLoadBarBg = create("Frame", {Size=UDim2.new(0,260,0,4), Position=UDim2.new(0.5,-130,0.5,44), BackgroundTransparency=1, BorderSizePixel=0, ZIndex=101, Parent=IntroOverlay, Theme={BackgroundColor3="input"}})
+local iLoadBar = create("Frame", {Size=UDim2.new(0,0,1,0), BackgroundTransparency=1, BorderSizePixel=0, ZIndex=102, Parent=iLoadBarBg, Theme={BackgroundColor3="accent"}})
+create("UICorner",{CornerRadius=UDim.new(1,0),Parent=iLoadBarBg})
+create("UICorner",{CornerRadius=UDim.new(1,0),Parent=iLoadBar})
+local iSkip = create("TextButton", {Text="skip â€º", Font=Enum.Font.GothamSemibold, TextSize=12, Size=UDim2.new(0,60,0,30), Position=UDim2.new(1,-72,1,-42), TextTransparency=1, BackgroundTransparency=1, BorderSizePixel=0, ZIndex=101, Parent=IntroOverlay, Theme={TextColor3="dim"}})
+
+local function playIntro()
+    if globalState.hasSeenIntro then
+        IntroOverlay.Visible = false
+        return
+    end
+    tween(iTitle, {TextTransparency=0}, 0.55)
+    tween(iTitleScale, {Scale=1}, 0.78, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
+    tween(iSkip, {TextTransparency=0}, 0.6)
+    task.wait(0.55)
+    tween(iSub, {TextTransparency=0}, 0.45)
+    tween(iLoadBarBg, {BackgroundTransparency=0}, 0.45)
+    tween(iLoadBar, {BackgroundTransparency=0}, 0.45)
+    task.wait(0.3)
+    tween(iLoadBar, {Size=UDim2.new(1,0,1,0)}, 1.15, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    task.wait(1.3)
+    local fadeTime = 0.45
+    tween(IntroOverlay, {BackgroundTransparency=1}, fadeTime)
+    tween(iTitle, {TextTransparency=1}, fadeTime)
+    tween(iSub, {TextTransparency=1}, fadeTime)
+    tween(iLoadBarBg, {BackgroundTransparency=1}, fadeTime)
+    tween(iLoadBar, {BackgroundTransparency=1}, fadeTime)
+    tween(iSkip, {TextTransparency=1}, fadeTime)
+    task.wait(fadeTime)
+    IntroOverlay.Visible = false
+    globalState.hasSeenIntro = true
+    saveGlobalState()
+end
+
+iSkip.MouseButton1Click:Connect(function()
+    IntroOverlay.Visible = false
+    globalState.hasSeenIntro = true
+    saveGlobalState()
 end)
 
-Players.PlayerRemoving:Connect(function()
-    print("🔄 لاعب خرج من السيرفر")
+-- tab wiring
+for _,btn in pairs(tabBtns) do
+    local name=btn.Text
+    btn.MouseButton1Click:Connect(function() switchTab(name) end)
+end
+task.defer(function() switchTab("Inserter", true) end)
+applyTheme(activeTheme)
+
+task.spawn(playIntro)
+
+-- dock toggle button in StudioLite bar
+pcall(function()
+    local _LocalPlayer = LocalPlayer
+    local v57=_LocalPlayer.PlayerGui.StudioGui.MainBar.toolbox:Clone()
+    local ls=v57:FindFirstChildOfClass('LocalScript')
+    if ls then ls:Destroy() end
+    v57.Position=UDim2.new(0,357,0,3)
+    v57.Parent=_LocalPlayer.PlayerGui.StudioGui.MainBar
+    v57.Name='CoStudio Toggle'
+    v57.Text='CoStudio'
+    if v57:FindFirstChild('toolbox') then
+        v57.toolbox.Image='rbxassetid://140637889762678'
+        v57.toolbox.ImageColor3=Color3.fromRGB(255,255,255)
+        v57.toolbox.Name='ImageToggle'
+        create("UICorner",{CornerRadius=UDim.new(0,6),Parent=v57.ImageToggle})
+    end
+    v57.MouseButton1Click:Connect(function() toggleMain() end)
 end)
 
-print("🚀 تم تحميل السكربت بنجاح!")
+-- start open
+toggleMain(true)
+print("[CoStudio Nebula "..u1.."] loaded â€“ Ctrl+K â€¢ RightShift toggle")
