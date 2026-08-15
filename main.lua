@@ -3,7 +3,6 @@
 
 -- تحميل مكتبة الواجهة
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xipibicdz-alt/RIBO/refs/heads/main/library.lua"))()
-
 -- متغيرات عامة
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
